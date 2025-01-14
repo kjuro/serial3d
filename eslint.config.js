@@ -1,19 +1,30 @@
 import pluginVue from 'eslint-plugin-vue'
 import vueTsEslintConfig from '@vue/eslint-config-typescript'
-import skipFormatting from '@vue/eslint-config-prettier/skip-formatting'
+import prettier from 'eslint-plugin-prettier'
+import prettierConfig from 'eslint-config-prettier'
 
 export default [
   {
     name: 'app/files-to-lint',
-    files: ['**/*.{ts,mts,tsx,vue}'],
+    files: ['**/*.{ts,mts,tsx,vue}']
   },
 
   {
     name: 'app/files-to-ignore',
-    ignores: ['**/dist/**', '**/dist-ssr/**', '**/coverage/**'],
+    ignores: ['**/dist/**', '**/dist-ssr/**', '**/coverage/**']
   },
 
   ...pluginVue.configs['flat/essential'],
   ...vueTsEslintConfig(),
-  skipFormatting,
+
+  // Add Prettier plugin and config
+  {
+    plugins: {
+      prettier
+    },
+    rules: {
+      'prettier/prettier': 'error'
+    }
+  },
+  prettierConfig
 ]
