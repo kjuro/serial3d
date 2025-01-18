@@ -1,13 +1,34 @@
 <template>
   <main class="container">
-    <h1>Serial 3D</h1>
-    <div>
-      <div>vue-serial: {{ serial.isOpen ? 'is open (device is ' + (serial.isConnected ? 'connected)' : 'disconnected)') : 'is closed' }}</div>
-      <div v-if="serial.isOpen"><input ref="input" /><button :disabled="!serial.isConnected" @click="user_send">Send to device</button></div>
-      <div>
-        <button :disabled="serial.isClosing" @click="user_connect">{{ !serial.isOpen ? 'Connect to a device...' : 'Close connection' }}</button>
+    <b-row>
+      <h1 class="col">Serial 3D</h1>
+
+      <b-button class="col-auto align-self-center" variant="primary" :disabled="serial.isClosing" @click="connect">
+        {{ !serial.isOpen ? 'Connect' : 'Close connection' }}
+      </b-button>
+    </b-row>
+
+    <template v-if="serial.isOpen">
+      <div class="row mb-3">
+        <BFormTextarea v-model="input" class="col-12 mb-2" placeholder="Enter G-Code..." rows="3" />
+        <!--BButton @click="send('G28')" variant="primary" class="col-auto me-2" title="Home"><House /></BButton-->
+        <BButton @click="send('G91\nG0 Z10')" variant="primary" class="col-auto me-2" title="Up"><ArrowUpFromLine /></BButton>
+        <BButton @click="send('G91\nG0 Z-10')" variant="primary" class="col-auto me-2" title="Down"><ArrowDownToLine /></BButton>
+        <BButton @click="send('G91\nG0 X-10')" variant="primary" class="col-auto me-2" title="Left"><ArrowLeft /></BButton>
+        <BButton @click="send('G91\nG0 X10')" variant="primary" class="col-auto me-2" title="Right"><ArrowRight /></BButton>
+        <BButton @click="send('G91\nG0 Y10')" variant="primary" class="col-auto me-2" title="Back"><ArrowUp /></BButton>
+        <BButton @click="send('G91\nG0 Y-10')" variant="primary" class="col-auto me-2" title="Forward"><ArrowDown /></BButton>
+        <BButton @click="send(input)" variant="primary" class="ms-auto col-auto"><SendHorizontal /> Send</BButton>
       </div>
-    </div>
+
+      <div class="overflow-auto border row" style="height: 300px">
+        <div v-for="(line, index) in output" :key="index">{{ line }}</div>
+      </div>
+
+      <b-row class="mt-2">
+        <BButton @click="clear" variant="primary" class="col-auto"><CircleX /> Clear</BButton>
+      </b-row>
+    </template>
   </main>
 </template>
 
@@ -15,9 +36,13 @@
 import { ref } from 'vue'
 import VueSerial from 'vue-serial'
 
+import { House, ArrowUpFromLine, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, SendHorizontal, CircleX } from 'lucide-vue-next'
+
 // Data
 
-const input = ref() // input will contain the `<input ref="input">` element
+const input = ref('')
+const output = ref<string[]>([]) // will contain the output of the serial port
+
 let line = '' // will contain the line read from the serial port
 
 // Configure the serial settings
@@ -42,6 +67,7 @@ serial.addEventListener('read', (event) => {
   if (lines.length > 1) {
     for (let i = 0; i < lines.length - 1; i++) {
       console.log(lines[i])
+      output.value.push(lines[i])
     }
     line = lines[lines.length - 1]
   }
@@ -50,7 +76,7 @@ serial.addEventListener('read', (event) => {
 // Methods
 
 // Function to ask the user to select which serial device to connect
-async function user_connect() {
+async function connect() {
   if (serial.isOpen)
     await serial.close() // in your application, encapsulate in a try/catch to manage errors
   else {
@@ -64,16 +90,18 @@ async function user_connect() {
 }
 
 // Function to send the value contained in the input
-async function user_send() {
-  const input_elt = input.value as HTMLInputElement // refers to <input ref="input">
-
-  if (input_elt) {
-    const value = input_elt.value + '\n' // add a newline to the value
+async function send(text: string) {
+  if (text) {
+    const value = text + '\n' // add a newline to the value
     const encoder = new TextEncoder()
     const data = encoder.encode(value)
     await serial.write(data) // in your application, encapsulate in a try/catch to manage errors
     console.log('bytes sent:', value)
   }
+}
+
+function clear() {
+  output.value = []
 }
 </script>
 
