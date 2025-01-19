@@ -89,7 +89,7 @@ M114`
 
 // Data
 
-const scale = ref(2) // Scale factor
+const scale = ref(1) // Scale factor
 const offsetX = ref(0) // X offset
 const offsetY = ref(0) // Y offset
 
