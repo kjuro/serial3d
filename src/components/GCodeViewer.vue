@@ -2,15 +2,14 @@
   <svg class="g-code" :width="2 * size" :height="2 * size" :viewBox="`0 0 ${size} ${size}`">
     <rect class="bed" x="0" y="0" :width="size" :height="size" />
 
-    <g transform="scale(1, -1) translate(0, -235)">
+    <g :transform="`scale(1, -1) translate(0, -${size})`">
       <path v-for="line of lines" :key="line.id" :class="line.class" :d="`M${line.x} ${line.y} l${line.dx} ${line.dy}`" />
     </g>
   </svg>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { convertGCode } from '../utils/tools'
+import { computed } from 'vue'
 
 type Line = {
   id: number
@@ -30,24 +29,16 @@ const props = defineProps({
   },
   size: {
     type: Number,
-    default: 235
+    //default: 235
+    default: 200
   }
 })
-
-// Data
-
-const scale = ref(0.5) // Scale factor
-const offsetX = ref(50) // X offset
-const offsetY = ref(0) // Y offset
 
 // Computed
 
 const lines = computed<Line[]>(() => {
-  const code = convertGCode(props.gCode, scale.value, offsetX.value, offsetY.value)
-  const rows = code.split('\n')
+  const rows = props.gCode.split('\n')
   const lines: Line[] = []
-
-  console.log(code)
 
   let lastX = 0
   let lastY = 0
@@ -97,16 +88,12 @@ const lines = computed<Line[]>(() => {
       }
 
       lines.push({ id: id++, class: command === 'G0' ? 'move' : 'line', x, y, dx, dy })
-
-      console.log(lastX, lastY)
     } else if (command === 'G90') {
       absolute = true
     } else if (command === 'G91') {
       absolute = false
     }
   }
-
-  console.log(lines)
 
   return lines
 })

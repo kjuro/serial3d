@@ -2,6 +2,8 @@ export function convertGCode(code: string, scale = 1, offsetX = 0, offsetY = 0):
   const rows = code.split('\n')
   const lines: string[] = []
 
+  console.log('scale', scale, 'offsetX', offsetX, 'offsetY', offsetY)
+
   let absolute = true
 
   for (let row of rows) {
@@ -50,7 +52,13 @@ export function convertGCode(code: string, scale = 1, offsetX = 0, offsetY = 0):
 
     // Add arguments to the line
     Object.keys(argsMap).forEach((key) => {
-      line += ` ${key}${argsMap[key]}`
+      const value = argsMap[key]
+      if (typeof value === 'number' && !isNaN(value) && value % 1 !== 0) {
+        // Check if the value has decimal digits
+        line += ` ${key}${value.toFixed(6)}`
+      } else {
+        line += ` ${key}${value}`
+      }
     })
 
     lines.push(line + (comment ? ' ; ' + comment : ''))

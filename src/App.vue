@@ -6,32 +6,66 @@
       <b-button class="col-auto align-self-center" variant="primary" :disabled="serial.isClosing" @click="connect">
         {{ !serial.isOpen ? 'Connect' : 'Close connection' }}
       </b-button>
-
-      <BFormTextarea v-model="input" class="col-12 mb-2" placeholder="Enter G-Code..." rows="10" />
     </b-row>
 
-    <template v-if="serial.isOpen">
-      <div class="row mb-3">
-        <!--BButton @click="send('G28')" variant="primary" class="col-auto me-2" title="Home"><House /></BButton-->
-        <BButton @click="send('G91\nG0 Z10')" variant="primary" class="col-auto me-2" title="Up"><ArrowUpFromLine /></BButton>
-        <BButton @click="send('G91\nG0 Z-10')" variant="primary" class="col-auto me-2" title="Down"><ArrowDownToLine /></BButton>
-        <BButton @click="send('G91\nG0 X-10')" variant="primary" class="col-auto me-2" title="Left"><ArrowLeft /></BButton>
-        <BButton @click="send('G91\nG0 X10')" variant="primary" class="col-auto me-2" title="Right"><ArrowRight /></BButton>
-        <BButton @click="send('G91\nG0 Y10')" variant="primary" class="col-auto me-2" title="Back"><ArrowUp /></BButton>
-        <BButton @click="send('G91\nG0 Y-10')" variant="primary" class="col-auto me-2" title="Forward"><ArrowDown /></BButton>
-        <BButton @click="send(input)" variant="primary" class="ms-auto col-auto"><SendHorizontal /> Send</BButton>
+    <b-row class="mb-2">
+      <BFormTextarea v-model="code" class="col" placeholder="Enter G-Code..." rows="10" />
+      <div class="col-auto" style="width: 130px">
+        <div>Scale</div>
+        <BFormInput v-model="scale" type="number" min="0.1" step="0.1" class="text-end mb-2" />
+        <div>Offset X</div>
+        <BFormInput v-model="offsetX" type="number" class="text-end mb-2" />
+        <div>Offset Y</div>
+        <BFormInput v-model="offsetY" type="number" class="text-end mb-2" />
+        <BButton @click="convertedCode = convertGCode(code, +scale, +offsetX, +offsetY)" variant="primary" class="w-100">Convert</BButton>
+      </div>
+      <BFormTextarea v-model="convertedCode" class="col" placeholder="Converted G-Code..." rows="10" />
+    </b-row>
+
+    <b-row v-if="serial.isOpen" class="mb-2">
+      <div class="col-6 px-0">
+        <BButton @click="send(code)" variant="primary"><SendHorizontal /> Send</BButton>
+      </div>
+      <div class="col-6 px-0 text-end">
+        <BButton @click="send(convertedCode)" variant="primary"><SendHorizontal /> Send</BButton>
+      </div>
+    </b-row>
+
+    <b-row class="mt-3">
+      <div class="col">
+        <GCodeViewer :g-code="code" />
       </div>
 
-      <div class="overflow-auto border row" style="height: 300px">
-        <div v-for="(line, index) in output" :key="index">{{ line }}</div>
+      <div v-if="serial.isOpen" class="col-auto" style="width: 130px">
+        <b-row>
+          <div class="col-6 mb-2 px-1">
+            <BButton @click="send('G91\nG0 Z10\nM114')" variant="primary" class="w-100" title="Up"><ArrowUpFromLine /></BButton>
+          </div>
+          <div class="col-6 mb-2 px-1">
+            <BButton @click="send('G91\nG0 Z-10\nM114')" variant="primary" class="w-100" title="Down"><ArrowDownToLine /></BButton>
+          </div>
+          <div class="col-6 mb-2 px-1">
+            <BButton @click="send('G91\nG0 X-10\nM114')" variant="primary" class="w-100" title="Left"><ArrowLeft /></BButton>
+          </div>
+          <div class="col-6 mb-2 px-1">
+            <BButton @click="send('G91\nG0 X10\nM114')" variant="primary" class="w-100" title="Right"><ArrowRight /></BButton>
+          </div>
+          <div class="col-6 mb-2 px-1">
+            <BButton @click="send('G91\nG0 Y10\nM114')" variant="primary" class="w-100" title="Back"><ArrowUp /></BButton>
+          </div>
+          <div class="col-6 mb-2 px-1">
+            <BButton @click="send('G91\nG0 Y-10\nM114')" variant="primary" class="w-100" title="Forward"><ArrowDown /></BButton>
+          </div>
+          <div class="col-12 mb-2 px-1">
+            <BButton @click="send(HOME)" variant="primary" class="w-100" title="Home"><House /></BButton>
+          </div>
+        </b-row>
       </div>
 
-      <b-row class="mt-2">
-        <BButton @click="clear" variant="primary" class="col-auto"><CircleX /> Clear</BButton>
-      </b-row>
-    </template>
-
-    <GCodeViewer :g-code="input" />
+      <div class="col text-end">
+        <GCodeViewer :g-code="convertedCode" class="col" />
+      </div>
+    </b-row>
   </main>
 </template>
 
@@ -39,12 +73,29 @@
 import { ref } from 'vue'
 import VueSerial from 'vue-serial'
 
-import { ArrowUpFromLine, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, SendHorizontal, CircleX } from 'lucide-vue-next'
+import { House, ArrowUpFromLine, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, SendHorizontal } from 'lucide-vue-next'
 import GCodeViewer from './components/GCodeViewer.vue'
+import { convertGCode } from '@/utils/tools'
+
+// Contants
+
+const HOME = `G28 X Y
+G90
+G0 X15 Y35
+G0 Z0
+G92 X0 Y0 Z0
+G0 Z10
+M114`
 
 // Data
 
-const input = ref(`G0 X0 Y0 Z-10
+const scale = ref(2) // Scale factor
+const offsetX = ref(0) // X offset
+const offsetY = ref(0) // Y offset
+
+const code = ref(`G90 ; absolute positioning
+G0 X0 Y0
+G0 Z0
 G91 ; relative positioning
 G1 X0 Y20
 G1 X20 Y0
@@ -57,9 +108,12 @@ G1 X20 Y-20
 G0 Z10
 `)
 
-const output = ref<string[]>([]) // will contain the output of the serial port
+const convertedCode = ref('')
 
 let line = '' // will contain the line read from the serial port
+
+const queue: string[] = []
+let isWaitingForOk = false
 
 // Configure the serial settings
 const serial = new VueSerial()
@@ -82,8 +136,12 @@ serial.addEventListener('read', (event) => {
 
   if (lines.length > 1) {
     for (let i = 0; i < lines.length - 1; i++) {
-      console.log(lines[i])
-      output.value.push(lines[i])
+      const text = lines[i].trim()
+      console.log(text)
+      if (text === 'ok') {
+        isWaitingForOk = false
+        processQueue()
+      }
     }
     line = lines[lines.length - 1]
   }
@@ -108,16 +166,25 @@ async function connect() {
 // Function to send the value contained in the input
 async function send(text: string) {
   if (text) {
-    const value = text + '\n' // add a newline to the value
-    const encoder = new TextEncoder()
-    const data = encoder.encode(value)
-    await serial.write(data) // in your application, encapsulate in a try/catch to manage errors
-    console.log('bytes sent:', value)
+    await text.split('\n').forEach((line) => queue.push(line))
+    processQueue()
   }
 }
 
-function clear() {
-  output.value = []
+// Function to process the queue
+async function processQueue() {
+  if (isWaitingForOk || queue.length === 0) {
+    return
+  }
+
+  const value = queue.shift()
+  if (value) {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(value + '\n')
+    isWaitingForOk = true
+    await serial.write(data)
+    console.log('Sent:', value)
+  }
 }
 </script>
 
