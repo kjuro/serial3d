@@ -10,7 +10,8 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix",
-    "format": "prettier --write src/"
+    "format": "prettier --write src/",
+    "test": "vitest"
   },
   "dependencies": {
     "bootstrap": "^5.3.3",
@@ -34,6 +35,7 @@
     "unplugin-vue-components": "^28.0.0",
     "vite": "^6.0.5",
     "vite-plugin-vue-devtools": "^7.6.8",
+    "vitest": "^3.0.2",
     "vue-tsc": "^2.1.10"
   }
 }

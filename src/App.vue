@@ -6,11 +6,12 @@
       <b-button class="col-auto align-self-center" variant="primary" :disabled="serial.isClosing" @click="connect">
         {{ !serial.isOpen ? 'Connect' : 'Close connection' }}
       </b-button>
+
+      <BFormTextarea v-model="input" class="col-12 mb-2" placeholder="Enter G-Code..." rows="10" />
     </b-row>
 
     <template v-if="serial.isOpen">
       <div class="row mb-3">
-        <BFormTextarea v-model="input" class="col-12 mb-2" placeholder="Enter G-Code..." rows="3" />
         <!--BButton @click="send('G28')" variant="primary" class="col-auto me-2" title="Home"><House /></BButton-->
         <BButton @click="send('G91\nG0 Z10')" variant="primary" class="col-auto me-2" title="Up"><ArrowUpFromLine /></BButton>
         <BButton @click="send('G91\nG0 Z-10')" variant="primary" class="col-auto me-2" title="Down"><ArrowDownToLine /></BButton>
@@ -29,6 +30,8 @@
         <BButton @click="clear" variant="primary" class="col-auto"><CircleX /> Clear</BButton>
       </b-row>
     </template>
+
+    <GCodeViewer :g-code="input" />
   </main>
 </template>
 
@@ -36,11 +39,24 @@
 import { ref } from 'vue'
 import VueSerial from 'vue-serial'
 
-import { House, ArrowUpFromLine, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, SendHorizontal, CircleX } from 'lucide-vue-next'
+import { ArrowUpFromLine, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, SendHorizontal, CircleX } from 'lucide-vue-next'
+import GCodeViewer from './components/GCodeViewer.vue'
 
 // Data
 
-const input = ref('')
+const input = ref(`G0 X0 Y0 Z-10
+G91 ; relative positioning
+G1 X0 Y20
+G1 X20 Y0
+G1 X0 Y-20
+G1 X-20 Y0
+G1 X20 Y20
+G1 X-10 Y10
+G1 X-10 Y-10
+G1 X20 Y-20
+G0 Z10
+`)
+
 const output = ref<string[]>([]) // will contain the output of the serial port
 
 let line = '' // will contain the line read from the serial port

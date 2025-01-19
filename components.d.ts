@@ -12,5 +12,6 @@ declare module 'vue' {
     BFormTextarea: typeof import('bootstrap-vue-next/components/BFormTextarea')['BFormTextarea']
     BInputGroup: typeof import('bootstrap-vue-next/components/BInputGroup')['BInputGroup']
     BRow: typeof import('bootstrap-vue-next/components/BContainer')['BRow']
+    GCodeViewer: typeof import('./src/components/GCodeViewer.vue')['default']
   }
 }
