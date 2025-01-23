@@ -1,10 +1,19 @@
 <template>
   <main class="container">
     <b-row>
-      <h1 class="col">Serial 3D</h1>
+      <h1 class="col">
+        Serial 3D [{{ X }}, {{ Y }}, {{ Z }}]
+        <div v-if="isWaitingForOk" class="spinner-border text-danger" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </h1>
 
-      <b-button class="col-auto align-self-center" variant="primary" :disabled="serial.isClosing" @click="connect">
-        {{ !serial.isOpen ? 'Connect' : 'Close connection' }}
+      <b-button class="col-auto align-self-center me-2" variant="primary" :disabled="printerSerial.isClosing" @click="connect(controllSerial)">
+        {{ !controllSerial.isOpen ? 'Connect Arduino' : 'Close connection' }}
+      </b-button>
+
+      <b-button class="col-auto align-self-center" variant="primary" :disabled="printerSerial.isClosing" @click="connect(printerSerial)">
+        {{ !printerSerial.isOpen ? 'Connect printer' : 'Close connection' }}
       </b-button>
     </b-row>
 
@@ -22,7 +31,7 @@
       <BFormTextarea v-model="convertedCode" class="col" placeholder="Converted G-Code..." rows="10" />
     </b-row>
 
-    <b-row v-if="serial.isOpen" class="mb-2">
+    <b-row v-if="printerSerial.isOpen" class="mb-2">
       <div class="col-6 px-0">
         <BButton @click="send(code)" variant="primary"><SendHorizontal /> Send</BButton>
       </div>
@@ -36,7 +45,7 @@
         <GCodeViewer :g-code="code" />
       </div>
 
-      <div v-if="serial.isOpen" class="col-auto" style="width: 130px">
+      <div v-if="printerSerial.isOpen" class="col-auto" style="width: 130px">
         <b-row>
           <div class="col-6 mb-2 px-1">
             <BButton @click="send('G91\nG0 Z10\nM114')" variant="primary" class="w-100" title="Up"><ArrowUpFromLine /></BButton>
@@ -56,8 +65,11 @@
           <div class="col-6 mb-2 px-1">
             <BButton @click="send('G91\nG0 Y-10\nM114')" variant="primary" class="w-100" title="Forward"><ArrowDown /></BButton>
           </div>
-          <div class="col-12 mb-2 px-1">
+          <div class="col-6 mb-2 px-1">
             <BButton @click="send(HOME)" variant="primary" class="w-100" title="Home"><House /></BButton>
+          </div>
+          <div class="col-6 mb-2 px-1">
+            <BButton @click="send('G92 X0 Y0 Z10\nM114')" variant="primary" class="w-100" title="Set [0, 0, 10]"><Circle /></BButton>
           </div>
         </b-row>
       </div>
@@ -73,7 +85,7 @@
 import { ref } from 'vue'
 import VueSerial from 'vue-serial'
 
-import { House, ArrowUpFromLine, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, SendHorizontal } from 'lucide-vue-next'
+import { House, ArrowUpFromLine, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, SendHorizontal, Circle } from 'lucide-vue-next'
 import GCodeViewer from './components/GCodeViewer.vue'
 import { convertGCode } from '@/utils/tools'
 
@@ -93,6 +105,12 @@ const scale = ref(1) // Scale factor
 const offsetX = ref(0) // X offset
 const offsetY = ref(0) // Y offset
 
+const moving = ref(false) // Head is moving
+
+const X = ref(0) // X position
+const Y = ref(0) // Y position
+const Z = ref(0) // Z position
+
 const code = ref(`G90 ; absolute positioning
 G0 X0 Y0
 G0 Z0
@@ -111,22 +129,19 @@ G0 Z10
 const convertedCode = ref('')
 
 let line = '' // will contain the line read from the serial port
+let controllLine = '' // will contain the line read from the serial port
 
 const queue: string[] = []
-let isWaitingForOk = false
+const isWaitingForOk = ref(false)
 
 // Configure the serial settings
-const serial = new VueSerial()
+const printerSerial = new VueSerial()
+setConfiguration(printerSerial)
 
-serial.baudRate = 115200
-serial.dataBits = 8
-serial.stopBits = 1
-serial.parity = 'none'
-serial.bufferSize = 1024 // set to 1 to receive byte-per-byte
-serial.flowControl = 'none'
+const controllSerial = new VueSerial()
+setConfiguration(controllSerial)
 
-// This will watch for incoming data
-serial.addEventListener('read', (event) => {
+printerSerial.addEventListener('read', (event) => {
   const decoder = new TextDecoder()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const value = decoder.decode((event as any).value)
@@ -137,20 +152,92 @@ serial.addEventListener('read', (event) => {
   if (lines.length > 1) {
     for (let i = 0; i < lines.length - 1; i++) {
       const text = lines[i].trim()
-      console.log(text)
+      console.log('Plotter', text)
       if (text === 'ok') {
-        isWaitingForOk = false
+        isWaitingForOk.value = false
         processQueue()
+      }
+
+      if (text.startsWith('X:')) {
+        // Parse text like X:0.00 Y:0.00 Z:10.00 E:0.00 Count X:1200 Y:2800 Z:149
+        const regex = /X:(-?\d+\.\d+) Y:(-?\d+\.\d+) Z:(-?\d+\.\d+)/
+        const match = text.match(regex)
+        if (match) {
+          X.value = parseFloat(match[1])
+          Y.value = parseFloat(match[2])
+          Z.value = parseFloat(match[3])
+
+          moving.value = false
+        }
       }
     }
     line = lines[lines.length - 1]
   }
 })
 
+let oldS = -1
+
+controllSerial.addEventListener('read', (event) => {
+  const decoder = new TextDecoder()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const value = decoder.decode((event as any).value)
+  controllLine += value
+
+  const lines = controllLine.split('\n')
+
+  if (lines.length > 1) {
+    for (let i = 0; i < lines.length - 1; i++) {
+      const text = lines[i].trim()
+
+      if (!isWaitingForOk.value && !moving.value && text.startsWith('X:')) {
+        // console.log(text)
+        // Parse text like X:0,Y:0
+        const regex = /X:(\d+),Y:(\d+),S:(\d+)/
+        const match = text.match(regex)
+        if (match) {
+          let x = parseFloat(match[1])
+          let y = parseFloat(match[2])
+          const s = parseFloat(match[3])
+
+          const dx = x - 512
+          const dy = y - 512
+          const SPEED = 100
+
+          if (Math.abs(dx) > 20 || Math.abs(dy) > 20 || s != oldS) {
+            //console.log('Controll', x, y, s)
+
+            if (s != oldS) {
+              oldS = s
+
+              if (s > 0) {
+                if (Z.value > 0) {
+                  send(`G90\nG0 Z0\nM114`) // Pen down
+                } else {
+                  send(`G90\nG0 Z10\nM114`) // Pen up
+                }
+              }
+            } else {
+              x = X.value + dx / SPEED
+              y = Y.value + dy / SPEED
+
+              const xx = Math.min(Math.max(x, 0), 200).toFixed(6)
+              const yy = Math.min(Math.max(y, 0), 200).toFixed(6)
+
+              console.log('Controll', X.value, Y.value, dx, dy, xx, yy)
+
+              send(`G90\nG${Z.value > 0 ? 0 : 1} X${xx} Y${yy}\nM114`)
+            }
+          }
+        }
+      }
+    }
+    controllLine = lines[lines.length - 1]
+  }
+})
+
 // Methods
 
-// Function to ask the user to select which serial device to connect
-async function connect() {
+async function connect(serial: VueSerial) {
   if (serial.isOpen)
     await serial.close() // in your application, encapsulate in a try/catch to manage errors
   else {
@@ -173,7 +260,7 @@ async function send(text: string) {
 
 // Function to process the queue
 async function processQueue() {
-  if (isWaitingForOk || queue.length === 0) {
+  if (isWaitingForOk.value || queue.length === 0) {
     return
   }
 
@@ -181,10 +268,24 @@ async function processQueue() {
   if (value) {
     const encoder = new TextEncoder()
     const data = encoder.encode(value + '\n')
-    isWaitingForOk = true
-    await serial.write(data)
+    isWaitingForOk.value = true
+
+    if (value.startsWith('G0') || value.startsWith('G1')) {
+      moving.value = true
+    }
+
+    await printerSerial.write(data)
     console.log('Sent:', value)
   }
+}
+
+function setConfiguration(serial: VueSerial) {
+  serial.baudRate = 115200
+  serial.dataBits = 8
+  serial.stopBits = 1
+  serial.parity = 'none'
+  serial.bufferSize = 1024 // set to 1 to receive byte-per-byte
+  serial.flowControl = 'none'
 }
 </script>
 
