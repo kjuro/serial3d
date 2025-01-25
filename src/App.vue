@@ -8,17 +8,22 @@
         </div>
       </h1>
 
-      <b-button class="col-auto align-self-center me-2" variant="primary" :disabled="printerSerial.isClosing" @click="connect(controllSerial)">
-        {{ !controllSerial.isOpen ? 'Connect Arduino' : 'Close connection' }}
-      </b-button>
-
       <b-button class="col-auto align-self-center" variant="primary" :disabled="printerSerial.isClosing" @click="connect(printerSerial)">
-        {{ !printerSerial.isOpen ? 'Connect printer' : 'Close connection' }}
+        {{ !printerSerial.isOpen ? 'Connect' : 'Close connection' }}
       </b-button>
     </b-row>
 
     <b-row class="mb-2">
-      <BFormTextarea v-model="code" class="col" placeholder="Enter G-Code..." rows="10" />
+      <div class="col">
+        <div class="mb-1">
+          <BButton @click="openFile(true)" size="sm" title="Open G-Code file" class="me-1"><FolderOpen /></BButton>
+          <BButton v-if="fileHandle1" @click="saveFile(true)" size="sm" title="Save G-Code file" class="me-1"><Save /></BButton>
+          <BButton @click="saveFile(true, true)" size="sm" title="Save as G-Code file" class="me-1"><SaveAll /></BButton>
+          <BButton @click="(code = ''), (fileHandle1 = '')" size="sm" title="Clear G-Code" class="me-1"><CircleX /></BButton>
+        </div>
+        <BFormTextarea v-model="code" class="col" placeholder="Enter G-Code..." rows="10" />
+      </div>
+
       <div class="col-auto" style="width: 130px">
         <div>Scale</div>
         <BFormInput v-model="scale" type="number" min="0.1" step="0.1" class="text-end mb-2" />
@@ -28,7 +33,16 @@
         <BFormInput v-model="offsetY" type="number" class="text-end mb-2" />
         <BButton @click="convertedCode = convertGCode(code, +scale, +offsetX, +offsetY)" variant="primary" class="w-100">Convert</BButton>
       </div>
-      <BFormTextarea v-model="convertedCode" class="col" placeholder="Converted G-Code..." rows="10" />
+
+      <div class="col">
+        <div class="mb-1">
+          <BButton @click="openFile(false)" size="sm" title="Open G-Code file" class="me-1"><FolderOpen /></BButton>
+          <BButton v-if="fileHandle2" @click="saveFile(false)" size="sm" title="Save G-Code file" class="me-1"><Save /></BButton>
+          <BButton @click="saveFile(false, true)" size="sm" title="Save as G-Code file" class="me-1"><SaveAll /></BButton>
+          <BButton @click="(convertedCode = ''), (fileHandle2 = '')" size="sm" title="Clear G-Code"><CircleX /></BButton>
+        </div>
+        <BFormTextarea v-model="convertedCode" class="col" placeholder="Converted G-Code..." rows="10" />
+      </div>
     </b-row>
 
     <b-row v-if="printerSerial.isOpen" class="mb-2">
@@ -42,16 +56,16 @@
 
     <b-row class="mt-3">
       <div class="col">
-        <GCodeViewer v-model="code" />
+        <GCodeViewer v-model="code" @send="send" />
       </div>
 
       <div v-if="printerSerial.isOpen" class="col-auto" style="width: 130px">
         <b-row>
           <div class="col-6 mb-2 px-1">
-            <BButton @click="send('G91\nG0 Z10\nM114')" variant="primary" class="w-100" title="Up"><ArrowUpFromLine /></BButton>
+            <BButton @click="send('G91\nG0 Z5\nM114')" variant="primary" class="w-100" title="Up"><ArrowUpFromLine /></BButton>
           </div>
           <div class="col-6 mb-2 px-1">
-            <BButton @click="send('G91\nG0 Z-10\nM114')" variant="primary" class="w-100" title="Down"><ArrowDownToLine /></BButton>
+            <BButton @click="send('G91\nG0 Z-5\nM114')" variant="primary" class="w-100" title="Down"><ArrowDownToLine /></BButton>
           </div>
           <div class="col-6 mb-2 px-1">
             <BButton @click="send('G91\nG0 X-10\nM114')" variant="primary" class="w-100" title="Left"><ArrowLeft /></BButton>
@@ -75,7 +89,7 @@
       </div>
 
       <div class="col text-end">
-        <GCodeViewer v-model="convertedCode" class="col" right />
+        <GCodeViewer v-model="convertedCode" @send="send" class="col" right />
       </div>
     </b-row>
   </main>
@@ -85,7 +99,21 @@
 import { ref } from 'vue'
 import VueSerial from 'vue-serial'
 
-import { House, ArrowUpFromLine, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, SendHorizontal, Circle } from 'lucide-vue-next'
+import {
+  House,
+  ArrowUpFromLine,
+  ArrowDownToLine,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  SendHorizontal,
+  Circle,
+  CircleX,
+  FolderOpen,
+  Save,
+  SaveAll
+} from 'lucide-vue-next'
 import GCodeViewer from './components/GCodeViewer.vue'
 import { convertGCode } from '@/utils/tools'
 
@@ -106,6 +134,8 @@ const offsetX = ref(0) // X offset
 const offsetY = ref(0) // Y offset
 
 const moving = ref(false) // Head is moving
+const fileHandle1 = ref() // File handle for left file
+const fileHandle2 = ref() // File handle for right file
 
 const X = ref(0) // X position
 const Y = ref(0) // Y position
@@ -114,22 +144,20 @@ const Z = ref(0) // Z position
 const code = ref(`G90 ; absolute positioning
 G0 X0 Y0
 G0 Z0
-G91 ; relative positioning
+G1 X0 Y20
+G1 X20 Y20
+G1 X20 Y0
+G1 X0 Y0
+G1 X20 Y20
+G1 X10 Y30
 G1 X0 Y20
 G1 X20 Y0
-G1 X0 Y-20
-G1 X-20 Y0
-G1 X20 Y20
-G1 X-10 Y10
-G1 X-10 Y-10
-G1 X20 Y-20
 G0 Z10
 `)
 
 const convertedCode = ref('')
 
 let line = '' // will contain the line read from the serial port
-let controllLine = '' // will contain the line read from the serial port
 
 const queue: string[] = []
 const isWaitingForOk = ref(false)
@@ -137,9 +165,6 @@ const isWaitingForOk = ref(false)
 // Configure the serial settings
 const printerSerial = new VueSerial()
 setConfiguration(printerSerial)
-
-const controllSerial = new VueSerial()
-setConfiguration(controllSerial)
 
 printerSerial.addEventListener('read', (event) => {
   const decoder = new TextDecoder()
@@ -175,66 +200,6 @@ printerSerial.addEventListener('read', (event) => {
   }
 })
 
-let oldS = -1
-
-controllSerial.addEventListener('read', (event) => {
-  const decoder = new TextDecoder()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const value = decoder.decode((event as any).value)
-  controllLine += value
-
-  const lines = controllLine.split('\n')
-
-  if (lines.length > 1) {
-    for (let i = 0; i < lines.length - 1; i++) {
-      const text = lines[i].trim()
-
-      if (!isWaitingForOk.value && !moving.value && text.startsWith('X:')) {
-        // console.log(text)
-        // Parse text like X:0,Y:0
-        const regex = /X:(\d+),Y:(\d+),S:(\d+)/
-        const match = text.match(regex)
-        if (match) {
-          let x = parseFloat(match[1])
-          let y = parseFloat(match[2])
-          const s = parseFloat(match[3])
-
-          const dx = x - 512
-          const dy = y - 512
-          const SPEED = 100
-
-          if (Math.abs(dx) > 20 || Math.abs(dy) > 20 || s != oldS) {
-            //console.log('Controll', x, y, s)
-
-            if (s != oldS) {
-              oldS = s
-
-              if (s > 0) {
-                if (Z.value > 0) {
-                  send(`G90\nG0 Z0\nM114`) // Pen down
-                } else {
-                  send(`G90\nG0 Z10\nM114`) // Pen up
-                }
-              }
-            } else {
-              x = X.value + dx / SPEED
-              y = Y.value + dy / SPEED
-
-              const xx = Math.min(Math.max(x, 0), 200).toFixed(6)
-              const yy = Math.min(Math.max(y, 0), 200).toFixed(6)
-
-              console.log('Controll', X.value, Y.value, dx, dy, xx, yy)
-
-              send(`G90\nG${Z.value > 0 ? 0 : 1} X${xx} Y${yy}\nM114`)
-            }
-          }
-        }
-      }
-    }
-    controllLine = lines[lines.length - 1]
-  }
-})
-
 // Methods
 
 async function connect(serial: VueSerial) {
@@ -252,6 +217,10 @@ async function connect(serial: VueSerial) {
 
 // Function to send the value contained in the input
 async function send(text: string) {
+  if (!printerSerial.isOpen) {
+    return
+  }
+
   if (text) {
     await text.split('\n').forEach((line) => queue.push(line))
     processQueue()
@@ -286,6 +255,77 @@ function setConfiguration(serial: VueSerial) {
   serial.parity = 'none'
   serial.bufferSize = 1024 // set to 1 to receive byte-per-byte
   serial.flowControl = 'none'
+}
+
+function openFile(first: boolean) {
+  // Open file with file API
+  // Open the file
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(window as any)
+    .showOpenFilePicker({
+      types: [
+        {
+          description: 'G-Code Files',
+          accept: {
+            'text/plain': ['.gcode', '.gco']
+          }
+        }
+      ]
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .then((fileHandles: any[]) => {
+      const fileHandle = fileHandles[0]
+      if (first) {
+        fileHandle1.value = fileHandle
+      } else {
+        fileHandle2.value = fileHandle
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      fileHandle.getFile().then((file: any) => {
+        // Read the file
+        file.text().then((text: string) => {
+          if (first) {
+            code.value = text
+          } else {
+            convertedCode.value = text
+          }
+        })
+      })
+    })
+}
+
+async function saveFile(first: boolean, openDialog = false) {
+  // Save file with file API
+  const text = first ? code.value : convertedCode.value
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let fileHandle: any = first ? fileHandle1.value : fileHandle2.value
+
+  if (openDialog || !fileHandle) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fileHandle = await (window as any).showSaveFilePicker({
+      types: [
+        {
+          description: 'G-Code Files',
+          accept: {
+            'text/plain': ['.gcode', '.gco']
+          }
+        }
+      ]
+    })
+
+    if (first) {
+      fileHandle1.value = fileHandle
+    } else {
+      fileHandle2.value = fileHandle
+    }
+  }
+
+  const writable = await fileHandle.createWritable()
+  await writable.write(text)
+  await writable.close()
+
+  console.log('Code was saved to: ' + fileHandle.name)
 }
 </script>
 
