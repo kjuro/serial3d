@@ -1,8 +1,20 @@
-export function convertGCode(code: string, scale = 1, offsetX = 0, offsetY = 0): string {
+export function scaleGCode(code: string, scale = 1): string {
+  return convertGCode(code, (x, y) => ({
+    x: x !== undefined ? x * scale : undefined,
+    y: y !== undefined ? y * scale : undefined
+  }))
+}
+
+export function moveGCode(code: string, offsetX = 0, offsetY = 0): string {
+  return convertGCode(code, (x, y, absolute) => ({
+    x: x !== undefined ? x + (absolute ? offsetX : 0) : undefined,
+    y: y !== undefined ? y + (absolute ? offsetY : 0) : undefined
+  }))
+}
+
+export function convertGCode(code: string, convert: (x: number, y: number, absolute: boolean) => { x?: number; y?: number }): string {
   const rows = code.split('\n')
   const lines: string[] = []
-
-  console.log('scale', scale, 'offsetX', offsetX, 'offsetY', offsetY)
 
   let absolute = true
 
@@ -37,12 +49,13 @@ export function convertGCode(code: string, scale = 1, offsetX = 0, offsetY = 0):
     const dy = argsMap.Y
 
     if (command === 'G0' || command === 'G1') {
+      const converted = convert(dx, dy, absolute)
       if (dx !== undefined) {
-        argsMap.X = dx * scale + (absolute ? offsetX : 0)
+        argsMap.X = converted.x as number
       }
 
       if (dy !== undefined) {
-        argsMap.Y = dy * scale + (absolute ? offsetY : 0)
+        argsMap.Y = converted.y as number
       }
     } else if (command === 'G90') {
       absolute = true

@@ -17,7 +17,7 @@
       </g>
     </svg>
 
-    <div v-if="editable" class="row mt-1" :class="{ 'justify-content-end': right }">
+    <div v-if="editable" class="row mt-1">
       <div class="col-auto">
         <BFormCheckbox v-model="penDown" @update:model-value="onPenDown">Pen down</BFormCheckbox>
       </div>
@@ -60,10 +60,6 @@ const props = defineProps({
   editable: {
     type: Boolean,
     default: true
-  },
-  right: {
-    type: Boolean,
-    default: false
   }
 })
 

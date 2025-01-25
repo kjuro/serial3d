@@ -1,4 +1,4 @@
-import { convertGCode } from './tools.ts'
+import { scaleGCode, moveGCode } from './tools.ts'
 import { describe, it, expect } from 'vitest'
 
 const gCode = `
@@ -31,19 +31,44 @@ G1 X20 Y20
 G1 X-40 Y-40
 `
 
-describe('convertGCode', () => {
+const home = `
+G90 ; absolute positioning
+G0 X0 Y0
+G0 Z0
+G1 X0 Y20
+G1 X20 Y20
+G1 X20 Y0
+G1 X0 Y0
+G1 X20 Y20
+G1 X10 Y30
+G1 X0 Y20
+G1 X20 Y0
+G0 Z10
+`
+
+describe('scaleGCode', () => {
   it('should not change G-code if no transform is defined', () => {
-    const result = convertGCode(gCode, 1, 0, 0)
+    let result = scaleGCode(gCode, 1)
+    expect(result).toEqual(gCode)
+    result = moveGCode(result, 0, 0)
     expect(result).toEqual(gCode)
   })
 
   it('should scale G-code', () => {
-    const result = convertGCode(gCode, 2, 0, 0)
+    const result = scaleGCode(gCode, 2)
     expect(result).toEqual(gCodeScalled)
   })
 
+  it('should scale Home', () => {
+    let result = scaleGCode(home, 1)
+    expect(result).toEqual(home)
+    result = moveGCode(result, 0, 0)
+    expect(result).toEqual(home)
+  })
+
   it('should scale and transform G-code', () => {
-    const result = convertGCode(gCode, 2, 10, 20)
+    let result = scaleGCode(gCode, 2)
+    result = moveGCode(result, 10, 20)
     expect(result).toEqual(gCodeTransformed)
   })
 })

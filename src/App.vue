@@ -16,10 +16,10 @@
     <b-row class="mb-2">
       <div class="col">
         <div class="mb-1">
-          <BButton @click="openFile(true)" size="sm" title="Open G-Code file" class="me-1"><FolderOpen /></BButton>
-          <BButton v-if="fileHandle1" @click="saveFile(true)" size="sm" title="Save G-Code file" class="me-1"><Save /></BButton>
-          <BButton @click="saveFile(true, true)" size="sm" title="Save as G-Code file" class="me-1"><SaveAll /></BButton>
-          <BButton @click="(code = ''), (fileHandle1 = '')" size="sm" title="Clear G-Code" class="me-1"><CircleX /></BButton>
+          <BButton @click="openFile()" size="sm" title="Open G-Code file" class="me-1"><FolderOpen /></BButton>
+          <BButton v-if="fileHandle" @click="saveFile()" size="sm" title="Save G-Code file" class="me-1"><Save /></BButton>
+          <BButton @click="saveFile(true)" size="sm" title="Save as G-Code file" class="me-1"><SaveAll /></BButton>
+          <BButton @click="(code = ''), (fileHandle = '')" size="sm" title="Clear G-Code" class="me-1"><CircleX /></BButton>
         </div>
         <BFormTextarea v-model="code" class="col" placeholder="Enter G-Code..." rows="10" />
       </div>
@@ -31,26 +31,14 @@
         <BFormInput v-model="offsetX" type="number" class="text-end mb-2" />
         <div>Offset Y</div>
         <BFormInput v-model="offsetY" type="number" class="text-end mb-2" />
-        <BButton @click="convertedCode = convertGCode(code, +scale, +offsetX, +offsetY)" variant="primary" class="w-100">Convert</BButton>
-      </div>
-
-      <div class="col">
-        <div class="mb-1">
-          <BButton @click="openFile(false)" size="sm" title="Open G-Code file" class="me-1"><FolderOpen /></BButton>
-          <BButton v-if="fileHandle2" @click="saveFile(false)" size="sm" title="Save G-Code file" class="me-1"><Save /></BButton>
-          <BButton @click="saveFile(false, true)" size="sm" title="Save as G-Code file" class="me-1"><SaveAll /></BButton>
-          <BButton @click="(convertedCode = ''), (fileHandle2 = '')" size="sm" title="Clear G-Code"><CircleX /></BButton>
-        </div>
-        <BFormTextarea v-model="convertedCode" class="col" placeholder="Converted G-Code..." rows="10" />
+        <BButton @click="convertGCode(false)" variant="secondary" class="w-100 mb-2">Revert</BButton>
+        <BButton @click="convertGCode(true)" variant="primary" class="w-100">Convert</BButton>
       </div>
     </b-row>
 
     <b-row v-if="printerSerial.isOpen" class="mb-2">
       <div class="col-6 px-0">
         <BButton @click="send(code)" variant="primary"><SendHorizontal /> Send</BButton>
-      </div>
-      <div class="col-6 px-0 text-end">
-        <BButton @click="send(convertedCode)" variant="primary"><SendHorizontal /> Send</BButton>
       </div>
     </b-row>
 
@@ -87,10 +75,6 @@
           </div>
         </b-row>
       </div>
-
-      <div class="col text-end">
-        <GCodeViewer v-model="convertedCode" @send="send" class="col" right />
-      </div>
     </b-row>
   </main>
 </template>
@@ -115,7 +99,7 @@ import {
   SaveAll
 } from 'lucide-vue-next'
 import GCodeViewer from './components/GCodeViewer.vue'
-import { convertGCode } from '@/utils/tools'
+import { scaleGCode, moveGCode } from '@/utils/tools'
 
 // Contants
 
@@ -129,13 +113,12 @@ M114`
 
 // Data
 
-const scale = ref(1) // Scale factor
-const offsetX = ref(0) // X offset
-const offsetY = ref(0) // Y offset
+const scale = ref<number>(1) // Scale factor
+const offsetX = ref<number>(0) // X offset
+const offsetY = ref<number>(0) // Y offset
 
 const moving = ref(false) // Head is moving
-const fileHandle1 = ref() // File handle for left file
-const fileHandle2 = ref() // File handle for right file
+const fileHandle = ref() // File handle
 
 const X = ref(0) // X position
 const Y = ref(0) // Y position
@@ -154,8 +137,6 @@ G1 X0 Y20
 G1 X20 Y0
 G0 Z10
 `)
-
-const convertedCode = ref('')
 
 let line = '' // will contain the line read from the serial port
 
@@ -257,7 +238,7 @@ function setConfiguration(serial: VueSerial) {
   serial.flowControl = 'none'
 }
 
-function openFile(first: boolean) {
+function openFile() {
   // Open file with file API
   // Open the file
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -274,36 +255,24 @@ function openFile(first: boolean) {
     })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .then((fileHandles: any[]) => {
-      const fileHandle = fileHandles[0]
-      if (first) {
-        fileHandle1.value = fileHandle
-      } else {
-        fileHandle2.value = fileHandle
-      }
+      fileHandle.value = fileHandles[0]
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      fileHandle.getFile().then((file: any) => {
+      fileHandle.value.getFile().then((file: any) => {
         // Read the file
         file.text().then((text: string) => {
-          if (first) {
-            code.value = text
-          } else {
-            convertedCode.value = text
-          }
+          code.value = text
         })
       })
     })
 }
 
-async function saveFile(first: boolean, openDialog = false) {
+async function saveFile(openDialog = false) {
   // Save file with file API
-  const text = first ? code.value : convertedCode.value
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let fileHandle: any = first ? fileHandle1.value : fileHandle2.value
-
-  if (openDialog || !fileHandle) {
+  const text = code.value
+  if (openDialog || !fileHandle.value) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    fileHandle = await (window as any).showSaveFilePicker({
+    fileHandle.value = await (window as any).showSaveFilePicker({
       types: [
         {
           description: 'G-Code Files',
@@ -313,19 +282,24 @@ async function saveFile(first: boolean, openDialog = false) {
         }
       ]
     })
-
-    if (first) {
-      fileHandle1.value = fileHandle
-    } else {
-      fileHandle2.value = fileHandle
-    }
   }
 
-  const writable = await fileHandle.createWritable()
+  const writable = await fileHandle.value.createWritable()
   await writable.write(text)
   await writable.close()
 
-  console.log('Code was saved to: ' + fileHandle.name)
+  console.log('Code was saved to: ' + fileHandle.value.name)
+}
+
+function convertGCode(convert: boolean) {
+  if (convert) {
+    const converted = scaleGCode(code.value, +scale.value)
+    code.value = moveGCode(converted, +offsetX.value, +offsetY.value)
+  } else {
+    // Revert
+    const converted = moveGCode(code.value, -offsetX.value, -offsetY.value)
+    code.value = scaleGCode(converted, 1 / +scale.value)
+  }
 }
 </script>
 
