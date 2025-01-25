@@ -1,15 +1,36 @@
 <template>
-  <svg class="g-code" :width="2 * size" :height="2 * size" :viewBox="`0 0 ${size} ${size}`">
-    <rect class="bed" x="0" y="0" :width="size" :height="size" />
+  <div>
+    <svg
+      class="g-code"
+      :width="scale * size"
+      :height="scale * size"
+      :viewBox="`0 0 ${size} ${size}`"
+      @mousedown="onMouseDown"
+      @mousemove="onMouseMove"
+      @mouseup="onMouseUp"
+      :style="{ cursor: editable ? 'crosshair' : 'default' }"
+    >
+      <rect class="bed" x="0" y="0" :width="size" :height="size" />
 
-    <g :transform="`scale(1, -1) translate(0, -${size})`">
-      <path v-for="line of lines" :key="line.id" :class="line.class" :d="`M${line.x} ${line.y} l${line.dx} ${line.dy}`" />
-    </g>
-  </svg>
+      <g :transform="`scale(1, -1) translate(0, -${size})`">
+        <path v-for="line of lines" :key="line.id" :class="line.class" :d="`M${line.x} ${line.y} l${line.dx} ${line.dy}`" />
+      </g>
+    </svg>
+
+    <div v-if="editable" class="row mt-1" :class="{ 'justify-content-end': right }">
+      <div class="col-auto">
+        <BFormCheckbox v-model="penDown" @update:model-value="onPenDown">Pen down</BFormCheckbox>
+      </div>
+      <div class="col-auto">
+        <BFormCheckbox v-model="send">Send</BFormCheckbox>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
+import { useVModel } from '@vueuse/core'
 
 type Line = {
   id: number
@@ -23,7 +44,7 @@ type Line = {
 // Properties
 
 const props = defineProps({
-  gCode: {
+  modelValue: {
     type: String,
     default: ''
   },
@@ -31,13 +52,37 @@ const props = defineProps({
     type: Number,
     //default: 235
     default: 200
+  },
+  scale: {
+    type: Number,
+    default: 2.5
+  },
+  editable: {
+    type: Boolean,
+    default: true
+  },
+  right: {
+    type: Boolean,
+    default: false
   }
 })
+
+// Emits
+
+const emit = defineEmits(['update:modelValue', 'send'])
+
+// Data
+
+const gCode = useVModel(props, 'modelValue', emit)
+
+const isDragging = ref(false)
+const penDown = ref(false)
+const send = ref(false)
 
 // Computed
 
 const lines = computed<Line[]>(() => {
-  const rows = props.gCode.split('\n')
+  const rows = gCode.value.split('\n')
   const lines: Line[] = []
 
   let lastX = 0
@@ -97,6 +142,62 @@ const lines = computed<Line[]>(() => {
 
   return lines
 })
+
+// Methods
+
+const getCode = () => {
+  return gCode.value ? gCode.value : 'G90 ; absolute positioning\nG0 X0 Y0 ; move to start position\n'
+}
+
+const sendCode = (code: string) => {
+  if (send.value) {
+    emit('send', code)
+  }
+}
+
+const onPenDown = (down: boolean) => {
+  const code = down ? 'G1 Z0\n' : 'G0 Z10\n'
+  sendCode(code)
+  gCode.value = getCode() + code
+}
+
+const onMouseDown = (event: MouseEvent) => {
+  if (!props.editable) return
+
+  const svgElement = event.currentTarget as SVGElement
+  const rect = svgElement.getBoundingClientRect()
+  const x = (event.clientX - rect.left) / props.scale
+  const y = (rect.height - (event.clientY - rect.top)) / props.scale
+
+  isDragging.value = true
+
+  let code = ''
+
+  if (penDown.value) {
+    code = `G1 X${x} Y${y}\n`
+  } else {
+    code = `G0 X${x} Y${y}\n`
+  }
+
+  sendCode(code)
+  gCode.value = getCode() + code
+}
+
+const onMouseMove = (event: MouseEvent) => {
+  if (!isDragging.value) return
+
+  const svgElement = event.currentTarget as SVGElement
+  const rect = svgElement.getBoundingClientRect()
+  const x = (event.clientX - rect.left) / props.scale
+  const y = (rect.height - (event.clientY - rect.top)) / props.scale
+
+  // Handle the move logic here
+  console.log(`Moving: x=${x}, y=${y}`)
+}
+
+const onMouseUp = () => {
+  isDragging.value = false
+}
 </script>
 
 <style>

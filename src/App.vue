@@ -42,7 +42,7 @@
 
     <b-row class="mt-3">
       <div class="col">
-        <GCodeViewer :g-code="code" />
+        <GCodeViewer v-model="code" />
       </div>
 
       <div v-if="printerSerial.isOpen" class="col-auto" style="width: 130px">
@@ -75,7 +75,7 @@
       </div>
 
       <div class="col text-end">
-        <GCodeViewer :g-code="convertedCode" class="col" />
+        <GCodeViewer v-model="convertedCode" class="col" right />
       </div>
     </b-row>
   </main>
