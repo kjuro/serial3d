@@ -55,7 +55,7 @@ const props = defineProps({
   },
   scale: {
     type: Number,
-    default: 2.5
+    default: 4
   },
   editable: {
     type: Boolean,
@@ -199,6 +199,7 @@ const onMouseUp = () => {
 <style>
 svg.g-code {
   stroke: black;
+  stroke-width: 0.4;
   fill: none;
 }
 

@@ -1,0 +1,21 @@
+/* Layout */
+
+html, body, main {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Test classes */
+
+.br {
+  border: 1px solid red;
+}
+
+.bb {
+  border: 1px solid blue;
+}
+
+.bg {
+  border: 1px solid green;
+}

@@ -6,3 +6,6 @@
 - [ ] Remember last settings in local storage
 - [ ] Zoom and pan for SVG image
 - [ ] Show grid for SVG
+- [ ] Rotate
+- [ ] Pen width
+- [ ] Pen color

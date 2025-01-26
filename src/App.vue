@@ -1,81 +1,89 @@
 <template>
-  <main class="container">
-    <b-row>
-      <h1 class="col">
-        Serial 3D [{{ X }}, {{ Y }}, {{ Z }}]
-        <div v-if="isWaitingForOk" class="spinner-border text-danger" role="status">
+  <main class="d-flex flex-column">
+    <nav class="navbar bg-body-tertiary border-bottom">
+      <div class="container-fluid">
+        <div class="row col-auto mx-0">
+          <b-button @click="openFile()" size="sm" title="Open G-Code file" class="col-auto me-1"><FolderOpen /></b-button>
+          <b-button v-if="fileHandle" @click="saveFile()" size="sm" title="Save G-Code file" class="col-auto me-1"><Save /></b-button>
+          <b-button @click="saveFile(true)" size="sm" title="Save as G-Code file" class="col-auto me-1"><SaveAll /></b-button>
+          <b-button @click="(code = ''), (fileHandle = '')" size="sm" title="Clear G-Code" class="col-auto me-1"><CircleX /></b-button>
+
+          <b-button v-if="printerSerial.isOpen" @click="send(code)" variant="primary" class="col-auto mx-1"><SendHorizontal /> Send</b-button>
+        </div>
+
+        <span class="navbar-brand col text-center">Serial Plotter [{{ X }}, {{ Y }}, {{ Z }}]</span>
+
+        <span v-if="isWaitingForOk" class="col-auto spinner-border text-danger" role="status">
           <span class="visually-hidden">Loading...</span>
+        </span>
+
+        <div class="row col-auto mx-0 ms-auto">
+          <b-button
+            class="col-auto"
+            variant="primary"
+            size="sm"
+            :title="!printerSerial.isOpen ? 'Connect' : 'Close connection'"
+            @click="connect(printerSerial)"
+          >
+            <Unplug v-if="printerSerial.isOpen" />
+            <Plug v-else />
+          </b-button>
         </div>
-      </h1>
+      </div>
+    </nav>
 
-      <b-button class="col-auto align-self-center" variant="primary" :disabled="printerSerial.isClosing" @click="connect(printerSerial)">
-        {{ !printerSerial.isOpen ? 'Connect' : 'Close connection' }}
-      </b-button>
-    </b-row>
-
-    <b-row class="mb-2">
-      <div class="col">
-        <div class="mb-1">
-          <BButton @click="openFile()" size="sm" title="Open G-Code file" class="me-1"><FolderOpen /></BButton>
-          <BButton v-if="fileHandle" @click="saveFile()" size="sm" title="Save G-Code file" class="me-1"><Save /></BButton>
-          <BButton @click="saveFile(true)" size="sm" title="Save as G-Code file" class="me-1"><SaveAll /></BButton>
-          <BButton @click="(code = ''), (fileHandle = '')" size="sm" title="Clear G-Code" class="me-1"><CircleX /></BButton>
-        </div>
-        <BFormTextarea v-model="code" class="col" placeholder="Enter G-Code..." rows="10" />
+    <div class="d-flex p-3 flex-grow-1">
+      <div class="col-4">
+        <BFormTextarea v-model="code" class="h-100" placeholder="Enter G-Code..." rows="10" />
       </div>
 
-      <div class="col-auto" style="width: 130px">
-        <div>Scale</div>
-        <BFormInput v-model="scale" type="number" min="0.1" step="0.1" class="text-end mb-2" />
-        <div>Offset X</div>
-        <BFormInput v-model="offsetX" type="number" class="text-end mb-2" />
-        <div>Offset Y</div>
-        <BFormInput v-model="offsetY" type="number" class="text-end mb-2" />
-        <BButton @click="convertGCode(false)" variant="secondary" class="w-100 mb-2">Revert</BButton>
-        <BButton @click="convertGCode(true)" variant="primary" class="w-100">Convert</BButton>
-      </div>
-    </b-row>
-
-    <b-row v-if="printerSerial.isOpen" class="mb-2">
-      <div class="col-6 px-0">
-        <BButton @click="send(code)" variant="primary"><SendHorizontal /> Send</BButton>
-      </div>
-    </b-row>
-
-    <b-row class="mt-3">
       <div class="col">
         <GCodeViewer v-model="code" @send="send" />
       </div>
 
-      <div v-if="printerSerial.isOpen" class="col-auto" style="width: 130px">
-        <b-row>
-          <div class="col-6 mb-2 px-1">
-            <BButton @click="send('G91\nG0 Z5\nM114')" variant="primary" class="w-100" title="Up"><ArrowUpFromLine /></BButton>
-          </div>
-          <div class="col-6 mb-2 px-1">
-            <BButton @click="send('G91\nG0 Z-5\nM114')" variant="primary" class="w-100" title="Down"><ArrowDownToLine /></BButton>
-          </div>
-          <div class="col-6 mb-2 px-1">
-            <BButton @click="send('G91\nG0 X-10\nM114')" variant="primary" class="w-100" title="Left"><ArrowLeft /></BButton>
-          </div>
-          <div class="col-6 mb-2 px-1">
-            <BButton @click="send('G91\nG0 X10\nM114')" variant="primary" class="w-100" title="Right"><ArrowRight /></BButton>
-          </div>
-          <div class="col-6 mb-2 px-1">
-            <BButton @click="send('G91\nG0 Y10\nM114')" variant="primary" class="w-100" title="Back"><ArrowUp /></BButton>
-          </div>
-          <div class="col-6 mb-2 px-1">
-            <BButton @click="send('G91\nG0 Y-10\nM114')" variant="primary" class="w-100" title="Forward"><ArrowDown /></BButton>
-          </div>
-          <div class="col-6 mb-2 px-1">
-            <BButton @click="send(HOME)" variant="primary" class="w-100" title="Home"><House /></BButton>
-          </div>
-          <div class="col-6 mb-2 px-1">
-            <BButton @click="send('G92 X0 Y0 Z10\nM114')" variant="primary" class="w-100" title="Set [0, 0, 10]"><Circle /></BButton>
-          </div>
-        </b-row>
+      <div class="col-auto px-2" style="width: 130px">
+        <div>Scale</div>
+        <b-form-input v-model="scale" type="number" min="0.1" step="0.1" class="text-end mb-2" />
+        <div>Offset X</div>
+        <b-form-input v-model="offsetX" type="number" class="text-end mb-2" />
+        <div>Offset Y</div>
+        <b-form-input v-model="offsetY" type="number" class="text-end mb-2" />
+        <b-button @click="convertGCode(false)" variant="secondary" class="w-100 mb-2">Revert</b-button>
+        <b-button @click="convertGCode(true)" variant="primary" class="w-100">Convert</b-button>
+
+        <div v-if="printerSerial.isOpen" class="col-auto p-2 mt-3">
+          <b-row>
+            <div class="col-12 mb-2 px-1">
+              <b-form-select v-model="unit" :options="unitOptions" />
+            </div>
+            <div class="col-6 mb-2 px-1">
+              <b-button @click="move(0, 0, 1)" variant="primary" class="w-100" title="Up"><ArrowUpFromLine /></b-button>
+            </div>
+            <div class="col-6 mb-2 px-1">
+              <b-button @click="move(0, 0, -1)" variant="primary" class="w-100" title="Down"><ArrowDownToLine /></b-button>
+            </div>
+            <div class="col-6 mb-2 px-1">
+              <b-button @click="move(-1, 0, 0)" variant="primary" class="w-100" title="Left"><ArrowLeft /></b-button>
+            </div>
+            <div class="col-6 mb-2 px-1">
+              <b-button @click="move(1, 0, 0)" variant="primary" class="w-100" title="Right"><ArrowRight /></b-button>
+            </div>
+            <div class="col-6 mb-2 px-1">
+              <b-button @click="move(0, 1, 0)" variant="primary" class="w-100" title="Back"><ArrowUp /></b-button>
+            </div>
+            <div class="col-6 mb-2 px-1">
+              <b-button @click="move(0, -1, 0)" variant="primary" class="w-100" title="Forward"><ArrowDown /></b-button>
+            </div>
+            <div class="col-6 mb-2 px-1">
+              <b-button @click="send(HOME)" variant="primary" class="w-100" title="Home"><House /></b-button>
+            </div>
+            <div class="col-6 mb-2 px-1">
+              <b-button @click="send('G92 X0 Y0 Z10\nM114\n')" variant="primary" class="w-100" title="Set [0, 0, 10]"><Circle /></b-button>
+            </div>
+          </b-row>
+        </div>
       </div>
-    </b-row>
+    </div>
   </main>
 </template>
 
@@ -96,7 +104,9 @@ import {
   CircleX,
   FolderOpen,
   Save,
-  SaveAll
+  SaveAll,
+  Plug,
+  Unplug
 } from 'lucide-vue-next'
 import GCodeViewer from './components/GCodeViewer.vue'
 import { scaleGCode, moveGCode } from '@/utils/tools'
@@ -109,7 +119,8 @@ G0 X15 Y35
 G0 Z0
 G92 X0 Y0 Z0
 G0 Z10
-M114`
+M114
+`
 
 // Data
 
@@ -124,7 +135,9 @@ const X = ref(0) // X position
 const Y = ref(0) // Y position
 const Z = ref(0) // Z position
 
-const code = ref(`G90 ; absolute positioning
+const unit = ref(10) // Unit v mm
+
+const code = ref<string>(`G90 ; absolute positioning
 G0 X0 Y0
 G0 Z0
 G1 X0 Y20
@@ -137,6 +150,16 @@ G1 X0 Y20
 G1 X20 Y0
 G0 Z10
 `)
+
+// Constants
+
+const unitOptions = [
+  { value: 0.1, text: '0.1 mm' },
+  { value: 0.5, text: '0.5 mm' },
+  { value: 1, text: '1 mm' },
+  { value: 5, text: '5 mm' },
+  { value: 10, text: '10 mm' }
+]
 
 let line = '' // will contain the line read from the serial port
 
@@ -203,6 +226,10 @@ async function send(text: string) {
   }
 
   if (text) {
+    if (!text.endsWith('\n')) {
+      text += '\n'
+    }
+
     await text.split('\n').forEach((line) => queue.push(line))
     processQueue()
   }
@@ -300,6 +327,10 @@ function convertGCode(convert: boolean) {
     const converted = moveGCode(code.value, -offsetX.value, -offsetY.value)
     code.value = scaleGCode(converted, 1 / +scale.value)
   }
+}
+
+function move(x: number, y: number, z: number) {
+  send(`G91\nG0 X${x * unit.value} Y${y * unit.value} Z${z * unit.value}\nG90\nM114\n`)
 }
 </script>
 
