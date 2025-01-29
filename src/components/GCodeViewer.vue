@@ -2,8 +2,6 @@
   <div>
     <svg
       class="g-code"
-      :width="scale * size"
-      :height="scale * size"
       :viewBox="`0 0 ${size} ${size}`"
       @mousedown="onMouseDown"
       @mousemove="onMouseMove"
@@ -17,7 +15,7 @@
       </g>
     </svg>
 
-    <div v-if="editable" class="row mt-1">
+    <div v-if="!editable" class="row mt-1">
       <div class="col-auto">
         <BFormCheckbox v-model="penDown" @update:model-value="onPenDown">Pen down</BFormCheckbox>
       </div>
@@ -198,6 +196,7 @@ const onMouseUp = () => {
 
 <style>
 svg.g-code {
+  height: 100%;
   stroke: black;
   stroke-width: 0.4;
   fill: none;

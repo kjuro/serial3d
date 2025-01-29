@@ -32,16 +32,16 @@
       </div>
     </nav>
 
-    <div class="d-flex p-3 flex-grow-1">
-      <div class="col-4">
+    <article class="d-flex p-3 flex-grow-1">
+      <div class="col pe-3">
         <BFormTextarea v-model="code" class="h-100" placeholder="Enter G-Code..." rows="10" />
       </div>
 
-      <div class="col">
-        <GCodeViewer v-model="code" @send="send" />
+      <div class="col-auto">
+        <GCodeViewer class="h-100" v-model="code" @send="send" />
       </div>
 
-      <div class="col-auto px-2" style="width: 130px">
+      <div class="col-auto ps-3">
         <div>Scale</div>
         <b-form-input v-model="scale" type="number" min="0.1" step="0.1" class="text-end mb-2" />
         <div>Offset X</div>
@@ -51,39 +51,59 @@
         <b-button @click="convertGCode(false)" variant="secondary" class="w-100 mb-2">Revert</b-button>
         <b-button @click="convertGCode(true)" variant="primary" class="w-100">Convert</b-button>
 
-        <div v-if="printerSerial.isOpen" class="col-auto p-2 mt-3">
-          <b-row>
-            <div class="col-12 mb-2 px-1">
-              <b-form-select v-model="unit" :options="unitOptions" />
-            </div>
-            <div class="col-6 mb-2 px-1">
-              <b-button @click="move(0, 0, 1)" variant="primary" class="w-100" title="Up"><ArrowUpFromLine /></b-button>
-            </div>
-            <div class="col-6 mb-2 px-1">
-              <b-button @click="move(0, 0, -1)" variant="primary" class="w-100" title="Down"><ArrowDownToLine /></b-button>
-            </div>
-            <div class="col-6 mb-2 px-1">
-              <b-button @click="move(-1, 0, 0)" variant="primary" class="w-100" title="Left"><ArrowLeft /></b-button>
-            </div>
-            <div class="col-6 mb-2 px-1">
-              <b-button @click="move(1, 0, 0)" variant="primary" class="w-100" title="Right"><ArrowRight /></b-button>
-            </div>
-            <div class="col-6 mb-2 px-1">
-              <b-button @click="move(0, 1, 0)" variant="primary" class="w-100" title="Back"><ArrowUp /></b-button>
-            </div>
-            <div class="col-6 mb-2 px-1">
-              <b-button @click="move(0, -1, 0)" variant="primary" class="w-100" title="Forward"><ArrowDown /></b-button>
-            </div>
-            <div class="col-6 mb-2 px-1">
-              <b-button @click="send(HOME)" variant="primary" class="w-100" title="Home"><House /></b-button>
-            </div>
-            <div class="col-6 mb-2 px-1">
-              <b-button @click="send('G92 X0 Y0 Z10\nM114\n')" variant="primary" class="w-100" title="Set [0, 0, 10]"><Circle /></b-button>
-            </div>
-          </b-row>
-        </div>
+        <b-row class="mt-3">
+          <div class="col-12 mb-2 px-1">
+            <b-form-select v-model="unit" :options="unitOptions" />
+          </div>
+        </b-row>
+
+        <b-row class="mb-3 justify-content-center">
+          <div class="col-auto px-1">
+            <b-button @click="move(0, 0, 1)" variant="primary" class="" title="Up"><ArrowUpFromLine /></b-button>
+          </div>
+          <div class="col-auto px-1">
+            <b-button @click="send('G92 X0 Y0 Z10\nM114\n')" variant="primary" class="" title="Set [0, 0, 10]"><Circle /></b-button>
+          </div>
+          <div class="col-auto px-1">
+            <b-button @click="move(0, 0, -1)" variant="primary" class="" title="Down"><ArrowDownToLine /></b-button>
+          </div>
+        </b-row>
+
+        <b-row class="mb-2 justify-content-center">
+          <div class="col-auto px-1">
+            <b-button @click="move(-1, 1, 0)" variant="primary" class="" title="Up-Left"><ArrowUpLeft /></b-button>
+          </div>
+          <div class="col-auto px-1">
+            <b-button @click="move(0, 1, 0)" variant="primary" class="" title="Up"><ArrowUp /></b-button>
+          </div>
+          <div class="col-auto px-1">
+            <b-button @click="move(1, 1, 0)" variant="primary" class="" title="Up-Right"><ArrowUpRight /></b-button>
+          </div>
+        </b-row>
+        <b-row class="mb-2 justify-content-center">
+          <div class="col-auto px-1">
+            <b-button @click="move(-1, 0, 0)" variant="primary" class="" title="Left"><ArrowLeft /></b-button>
+          </div>
+          <div class="col-auto px-1">
+            <b-button @click="send(HOME)" variant="primary" class="" title="Home"><House /></b-button>
+          </div>
+          <div class="col-auto px-1">
+            <b-button @click="move(1, 0, 0)" variant="primary" class="" title="Right"><ArrowRight /></b-button>
+          </div>
+        </b-row>
+        <b-row class="justify-content-center">
+          <div class="col-auto px-1">
+            <b-button @click="move(-1, -1, 0)" variant="primary" class="" title="Down-Left"><ArrowDownLeft /></b-button>
+          </div>
+          <div class="col-auto px-1">
+            <b-button @click="move(0, -1, 0)" variant="primary" class="" title="Down"><ArrowDown /></b-button>
+          </div>
+          <div class="col-auto px-1">
+            <b-button @click="move(1, -1, 0)" variant="primary" class="" title="Down-Right"><ArrowDownRight /></b-button>
+          </div>
+        </b-row>
       </div>
-    </div>
+    </article>
   </main>
 </template>
 
@@ -106,7 +126,11 @@ import {
   Save,
   SaveAll,
   Plug,
-  Unplug
+  Unplug,
+  ArrowDownLeft,
+  ArrowDownRight,
+  ArrowUpLeft,
+  ArrowUpRight
 } from 'lucide-vue-next'
 import GCodeViewer from './components/GCodeViewer.vue'
 import { scaleGCode, moveGCode } from '@/utils/tools'
