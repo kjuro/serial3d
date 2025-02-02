@@ -4,7 +4,6 @@
       class="g-code"
       :viewBox="`0 0 ${size} ${size}`"
       @mousedown="onMouseDown"
-      @mousemove="onMouseMove"
       @mouseup="onMouseUp"
       :style="{ cursor: editable ? 'crosshair' : 'default' }"
     >
@@ -12,17 +11,12 @@
 
       <g :transform="`scale(1, -1) translate(0, -${size})`">
         <path v-for="line of lines" :key="line.id" :class="line.class" :d="`M${line.x} ${line.y} l${line.dx} ${line.dy}`" />
+
+        <!-- Cross at lastX, lastY -->
+        <line :x1="X - 4" :y1="Y" :x2="X + 4" :y2="Y" class="cross" />
+        <line :x1="X" :y1="Y - 4" :x2="X" :y2="Y + 4" class="cross" />
       </g>
     </svg>
-
-    <div v-if="!editable" class="row mt-1">
-      <div class="col-auto">
-        <BFormCheckbox v-model="penDown" @update:model-value="onPenDown">Pen down</BFormCheckbox>
-      </div>
-      <div class="col-auto">
-        <BFormCheckbox v-model="send">Send</BFormCheckbox>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -51,11 +45,23 @@ const props = defineProps({
     //default: 235
     default: 200
   },
-  scale: {
-    type: Number,
-    default: 4
-  },
   editable: {
+    type: Boolean,
+    default: true
+  },
+  X: {
+    type: Number,
+    default: 0
+  },
+  Y: {
+    type: Number,
+    default: 0
+  },
+  Z: {
+    type: Number,
+    default: 0
+  },
+  showMoves: {
     type: Boolean,
     default: true
   }
@@ -63,17 +69,26 @@ const props = defineProps({
 
 // Emits
 
-const emit = defineEmits(['update:modelValue', 'send'])
+const emit = defineEmits<{
+  'update:modelValue': [code: string]
+  send: [code: string]
+  move: [pos: { x: number; y: number; z: number }]
+}>()
 
 // Data
 
 const gCode = useVModel(props, 'modelValue', emit)
 
 const isDragging = ref(false)
-const penDown = ref(false)
-const send = ref(false)
 
 // Computed
+
+const penDown = computed<boolean>({
+  get: () => props.Z === 0,
+  set: (value) => {
+    onPenDown(value)
+  }
+})
 
 const lines = computed<Line[]>(() => {
   const rows = gCode.value.split('\n')
@@ -126,7 +141,9 @@ const lines = computed<Line[]>(() => {
         dy = (dy ?? y) - y
       }
 
-      lines.push({ id: id++, class: command === 'G0' ? 'move' : 'line', x, y, dx, dy })
+      if (props.showMoves || command === 'G1') {
+        lines.push({ id: id++, class: command === 'G0' ? 'move' : 'line', x, y, dx, dy })
+      }
     } else if (command === 'G90') {
       absolute = true
     } else if (command === 'G91') {
@@ -143,16 +160,11 @@ const getCode = () => {
   return gCode.value ? gCode.value : 'G90 ; absolute positioning\nG0 X0 Y0 ; move to start position\n'
 }
 
-const sendCode = (code: string) => {
-  if (send.value) {
-    emit('send', code)
-  }
-}
-
 const onPenDown = (down: boolean) => {
   const code = down ? 'G1 Z0\n' : 'G0 Z10\n'
-  sendCode(code)
+  emit('send', code)
   gCode.value = getCode() + code
+  emit('move', { x: props.X, y: props.Y, z: down ? 0 : 10 })
 }
 
 const onMouseDown = (event: MouseEvent) => {
@@ -160,33 +172,23 @@ const onMouseDown = (event: MouseEvent) => {
 
   const svgElement = event.currentTarget as SVGElement
   const rect = svgElement.getBoundingClientRect()
-  const x = (event.clientX - rect.left) / props.scale
-  const y = (rect.height - (event.clientY - rect.top)) / props.scale
+  const x = props.size * ((event.clientX - rect.left) / rect.width)
+  const y = props.size * (1 - (event.clientY - rect.top) / rect.height)
 
   isDragging.value = true
 
   let code = ''
 
   if (penDown.value) {
-    code = `G1 X${x} Y${y}\n`
+    code = `G1 X${x.toFixed(6)} Y${y.toFixed(6)}\n`
   } else {
-    code = `G0 X${x} Y${y}\n`
+    code = `G0 X${x.toFixed(6)} Y${y.toFixed(6)}\n`
   }
 
-  sendCode(code)
+  emit('send', code)
   gCode.value = getCode() + code
-}
 
-const onMouseMove = (event: MouseEvent) => {
-  if (!isDragging.value) return
-
-  const svgElement = event.currentTarget as SVGElement
-  const rect = svgElement.getBoundingClientRect()
-  const x = (event.clientX - rect.left) / props.scale
-  const y = (rect.height - (event.clientY - rect.top)) / props.scale
-
-  // Handle the move logic here
-  console.log(`Moving: x=${x}, y=${y}`)
+  emit('move', { x, y, z: props.Z })
 }
 
 const onMouseUp = () => {
@@ -204,6 +206,12 @@ svg.g-code {
 
 svg.g-code .bed {
   stroke: blue !important;
+}
+
+svg.g-code .cross {
+  stroke: red !important;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 
 svg.g-code .move {

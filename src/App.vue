@@ -6,12 +6,12 @@
           <b-button @click="openFile()" size="sm" title="Open G-Code file" class="col-auto me-1"><FolderOpen /></b-button>
           <b-button v-if="fileHandle" @click="saveFile()" size="sm" title="Save G-Code file" class="col-auto me-1"><Save /></b-button>
           <b-button @click="saveFile(true)" size="sm" title="Save as G-Code file" class="col-auto me-1"><SaveAll /></b-button>
-          <b-button @click="(code = ''), (fileHandle = '')" size="sm" title="Clear G-Code" class="col-auto me-1"><CircleX /></b-button>
+          <b-button @click="onClear" size="sm" title="Clear G-Code" class="col-auto me-1"><CircleX /></b-button>
 
           <b-button v-if="printerSerial.isOpen" @click="send(code)" variant="primary" class="col-auto mx-1"><SendHorizontal /> Send</b-button>
         </div>
 
-        <span class="navbar-brand col text-center">Serial Plotter [{{ X }}, {{ Y }}, {{ Z }}]</span>
+        <span class="navbar-brand col text-center">Serial Plotter / {{ position }}</span>
 
         <span v-if="isWaitingForOk" class="col-auto spinner-border text-danger" role="status">
           <span class="visually-hidden">Loading...</span>
@@ -38,7 +38,7 @@
       </div>
 
       <div class="col-auto">
-        <GCodeViewer class="h-100" v-model="code" @send="send" />
+        <GCodeViewer class="h-100" v-model="code" :X="X" :Y="Y" :Z="Z" :showMoves="showMoves" @send="sendCode" @move="onMove" />
       </div>
 
       <div class="col-auto ps-3">
@@ -102,13 +102,22 @@
             <b-button @click="move(1, -1, 0)" variant="primary" class="" title="Down-Right"><ArrowDownRight /></b-button>
           </div>
         </b-row>
+
+        <b-row class="mt-3">
+          <div class="col-12">
+            <BFormCheckbox v-model="sendToPlotter">Send to plotter</BFormCheckbox>
+          </div>
+          <div class="col-12">
+            <BFormCheckbox v-model="showMoves">Show moves</BFormCheckbox>
+          </div>
+        </b-row>
       </div>
     </article>
   </main>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import VueSerial from 'vue-serial'
 
 import {
@@ -155,11 +164,16 @@ const offsetY = ref<number>(0) // Y offset
 const moving = ref(false) // Head is moving
 const fileHandle = ref() // File handle
 
+const size = ref(200) // Plotter size
+
 const X = ref(0) // X position
 const Y = ref(0) // Y position
-const Z = ref(0) // Z position
+const Z = ref(10) // Z position
 
-const unit = ref(10) // Unit v mm
+const sendToPlotter = ref(false)
+const showMoves = ref(true)
+
+const unit = ref(10) // Unit in mm
 
 const code = ref<string>(`G90 ; absolute positioning
 G0 X0 Y0
@@ -184,6 +198,12 @@ const unitOptions = [
   { value: 5, text: '5 mm' },
   { value: 10, text: '10 mm' }
 ]
+
+// Computed
+
+const position = computed(() => `X: ${X.value.toFixed(6)} Y: ${Y.value.toFixed(6)} Z: ${Z.value.toFixed(6)}`)
+
+// Serial
 
 let line = '' // will contain the line read from the serial port
 
@@ -243,6 +263,11 @@ async function connect(serial: VueSerial) {
   }
 }
 
+function sendCode(text: string) {
+  if (sendToPlotter.value) {
+    send(text)
+  }
+}
 // Function to send the value contained in the input
 async function send(text: string) {
   if (!printerSerial.isOpen) {
@@ -354,7 +379,49 @@ function convertGCode(convert: boolean) {
 }
 
 function move(x: number, y: number, z: number) {
-  send(`G91\nG0 X${x * unit.value} Y${y * unit.value} Z${z * unit.value}\nG90\nM114\n`)
+  X.value += x * unit.value
+  Y.value += y * unit.value
+  Z.value += z * unit.value
+
+  if (X.value < 0) {
+    X.value = 0
+  }
+
+  if (Y.value < 0) {
+    Y.value = 0
+  }
+
+  if (Z.value < 0) {
+    Z.value = 0
+  }
+
+  if (X.value > size.value) {
+    X.value = size.value
+  }
+
+  if (Y.value > size.value) {
+    Y.value = size.value
+  }
+
+  if (Z.value > size.value) {
+    Z.value = size.value
+  }
+
+  sendCode(`G91\nG0 X${x * unit.value} Y${y * unit.value} Z${z * unit.value}\nG90\nM114\n`)
+}
+
+function onMove(pos: { x: number; y: number; z: number }) {
+  X.value = pos.x
+  Y.value = pos.y
+  Z.value = pos.z
+}
+
+function onClear() {
+  code.value = ''
+  fileHandle.value = ''
+  X.value = 0
+  Y.value = 0
+  Z.value = 10
 }
 </script>
 
