@@ -38,22 +38,53 @@
       </div>
 
       <div class="col-auto">
-        <GCodeViewer class="h-100" v-model="code" :X="X" :Y="Y" :Z="Z" :showMoves="showMoves" @send="sendCode" @move="onMove" />
+        <GCodeViewer class="h-100" v-model="code" :X="X" :Y="Y" :Z="Z" :showMoves="showMoves" :showGrid="showGrid" @send="sendCode" @move="onMove" />
       </div>
 
-      <div class="col-auto ps-3">
+      <div class="col-auto ps-3" style="width: 200px">
         <div>Scale</div>
-        <b-form-input v-model="scale" type="number" min="0.1" step="0.1" class="text-end mb-2" />
-        <div>Offset X</div>
-        <b-form-input v-model="offsetX" type="number" class="text-end mb-2" />
-        <div>Offset Y</div>
-        <b-form-input v-model="offsetY" type="number" class="text-end mb-2" />
+        <div class="input-group">
+          <b-form-input v-model="scale" class="text-end" />
+          <span class="input-group-text">%</span>
+        </div>
+
+        <div>Offset X / Y</div>
+        <div class="input-group mb-3">
+          <b-form-input v-model="offsetX" class="text-end" />
+          <b-form-input v-model="offsetY" class="text-end" />
+          <span class="input-group-text">mm</span>
+        </div>
+
         <b-button @click="convertGCode(false)" variant="secondary" class="w-100 mb-2">Revert</b-button>
         <b-button @click="convertGCode(true)" variant="primary" class="w-100">Convert</b-button>
 
-        <b-row class="mt-3">
-          <div class="col-12 mb-2 px-1">
-            <b-form-select v-model="unit" :options="unitOptions" />
+        <b-row class="mt-3 mx-0">
+          <div class="col-12 px-0">
+            <div>X / Y</div>
+            <div class="input-group mb-3">
+              <b-form-input v-model="X" class="text-end" />
+              <b-form-input v-model="Y" class="text-end" />
+              <span class="input-group-text">mm</span>
+            </div>
+          </div>
+        </b-row>
+
+        <b-row class="mt-3 mx-0">
+          <div class="col-12 px-0">
+            <div>Unit</div>
+            <div class="input-group mb-3">
+              <b-form-input v-model="unit" class="text-end" />
+              <span class="input-group-text">mm</span>
+            </div>
+          </div>
+        </b-row>
+
+        <b-row class="mb-3 justify-content-center">
+          <div class="col-auto px-1">
+            <b-button @click="move(X, Y, 0, true)" variant="primary" class="" title="Pen Up"><Pen /></b-button>
+          </div>
+          <div class="col-auto px-1">
+            <b-button @click="move(X, Y, 10, true)" variant="primary" class="" title="Pen Down"><PenOff /></b-button>
           </div>
         </b-row>
 
@@ -62,7 +93,7 @@
             <b-button @click="move(0, 0, 1)" variant="primary" class="" title="Up"><ArrowUpFromLine /></b-button>
           </div>
           <div class="col-auto px-1">
-            <b-button @click="send('G92 X0 Y0 Z10\nM114\n')" variant="primary" class="" title="Set [0, 0, 10]"><Circle /></b-button>
+            <b-button @click="move(0, 0, 10, true)" variant="primary" class="" title="Set [0, 0, 10]"><Circle /></b-button>
           </div>
           <div class="col-auto px-1">
             <b-button @click="move(0, 0, -1)" variant="primary" class="" title="Down"><ArrowDownToLine /></b-button>
@@ -110,6 +141,12 @@
           <div class="col-12">
             <BFormCheckbox v-model="showMoves">Show moves</BFormCheckbox>
           </div>
+          <div class="col-12">
+            <BFormCheckbox v-model="showGrid">Show grid</BFormCheckbox>
+          </div>
+          <div class="col-12">
+            <BFormCheckbox v-model="addToCode">Add to G-Code</BFormCheckbox>
+          </div>
         </b-row>
       </div>
     </article>
@@ -119,6 +156,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import VueSerial from 'vue-serial'
+import { useStorage } from '@vueuse/core'
 
 import {
   House,
@@ -139,10 +177,12 @@ import {
   ArrowDownLeft,
   ArrowDownRight,
   ArrowUpLeft,
-  ArrowUpRight
+  ArrowUpRight,
+  Pen,
+  PenOff
 } from 'lucide-vue-next'
 import GCodeViewer from './components/GCodeViewer.vue'
-import { scaleGCode, moveGCode } from '@/utils/tools'
+import { scaleGCode, moveGCode, toFixed } from '@/utils/tools'
 
 // Contants
 
@@ -157,7 +197,7 @@ M114
 
 // Data
 
-const scale = ref<number>(1) // Scale factor
+const scale = ref<number>(100) // Scale factor
 const offsetX = ref<number>(0) // X offset
 const offsetY = ref<number>(0) // Y offset
 
@@ -170,10 +210,12 @@ const X = ref(0) // X position
 const Y = ref(0) // Y position
 const Z = ref(10) // Z position
 
-const sendToPlotter = ref(false)
-const showMoves = ref(true)
+const sendToPlotter = useStorage('sendToPlotter', false)
+const showMoves = useStorage('showMoves', false)
+const showGrid = useStorage('showGrid', false)
+const addToCode = useStorage('addToCode', false)
 
-const unit = ref(10) // Unit in mm
+const unit = useStorage('unit', 10) // Unit in mm
 
 const code = ref<string>(`G90 ; absolute positioning
 G0 X0 Y0
@@ -189,19 +231,9 @@ G1 X20 Y0
 G0 Z10
 `)
 
-// Constants
-
-const unitOptions = [
-  { value: 0.1, text: '0.1 mm' },
-  { value: 0.5, text: '0.5 mm' },
-  { value: 1, text: '1 mm' },
-  { value: 5, text: '5 mm' },
-  { value: 10, text: '10 mm' }
-]
-
 // Computed
 
-const position = computed(() => `X: ${X.value.toFixed(6)} Y: ${Y.value.toFixed(6)} Z: ${Z.value.toFixed(6)}`)
+const position = computed(() => `X: ${toFixed(X.value)} Y: ${toFixed(Y.value)} Z: ${toFixed(Z.value)}`)
 
 // Serial
 
@@ -369,19 +401,29 @@ async function saveFile(openDialog = false) {
 
 function convertGCode(convert: boolean) {
   if (convert) {
-    const converted = scaleGCode(code.value, +scale.value)
+    const converted = scaleGCode(code.value, +scale.value / 100)
     code.value = moveGCode(converted, +offsetX.value, +offsetY.value)
   } else {
     // Revert
     const converted = moveGCode(code.value, -offsetX.value, -offsetY.value)
-    code.value = scaleGCode(converted, 1 / +scale.value)
+    code.value = scaleGCode(converted, 100 / +scale.value)
   }
 }
 
-function move(x: number, y: number, z: number) {
-  X.value += x * unit.value
-  Y.value += y * unit.value
-  Z.value += z * unit.value
+const getCode = () => {
+  return code.value ? code.value : 'G90 ; absolute positioning\nG0 X0 Y0 ; move to start position\n'
+}
+
+function move(x: number, y: number, z: number, absolute = false) {
+  if (absolute) {
+    X.value = x
+    Y.value = y
+    Z.value = z
+  } else {
+    X.value += x * unit.value
+    Y.value += y * unit.value
+    Z.value += z * unit.value
+  }
 
   if (X.value < 0) {
     X.value = 0
@@ -407,13 +449,23 @@ function move(x: number, y: number, z: number) {
     Z.value = size.value
   }
 
-  sendCode(`G91\nG0 X${x * unit.value} Y${y * unit.value} Z${z * unit.value}\nG90\nM114\n`)
+  const command = Z.value === 0 ? 'G1' : 'G0'
+
+  sendCode(absolute ? 'G90' : 'G91')
+  if (absolute) {
+    sendCode(`${command} X${toFixed(X.value)} Y${toFixed(Y.value)} Z${toFixed(Z.value)}\n`)
+  } else {
+    sendCode(`${command} X${toFixed(x * unit.value)} Y${toFixed(y * unit.value)} Z${toFixed(z * unit.value)}\n`)
+  }
+  sendCode(`${command}G90\nM114\n`)
+
+  if (addToCode.value) {
+    code.value = getCode() + `${command} X${toFixed(X.value)} Y${toFixed(Y.value)} Z${toFixed(Z.value)}\n`
+  }
 }
 
 function onMove(pos: { x: number; y: number; z: number }) {
-  X.value = pos.x
-  Y.value = pos.y
-  Z.value = pos.z
+  move(pos.x, pos.y, pos.z, true)
 }
 
 function onClear() {

@@ -68,7 +68,7 @@ export function convertGCode(code: string, convert: (x: number, y: number, absol
       const value = argsMap[key]
       if (typeof value === 'number' && !isNaN(value) && value % 1 !== 0) {
         // Check if the value has decimal digits
-        line += ` ${key}${value.toFixed(6)}`
+        line += ` ${key}${toFixed(value)}`
       } else {
         line += ` ${key}${value}`
       }
@@ -78,4 +78,16 @@ export function convertGCode(code: string, convert: (x: number, y: number, absol
   }
 
   return lines.join('\n')
+}
+
+/**
+ * Formats a number to a fixed number of decimal places if it has decimal digits.
+ * If the number is an integer, it returns the number as a string without formatting.
+ *
+ * @param value - The number to format.
+ * @param precision - The number of decimal places to format to (default is 6).
+ * @returns The formatted number as a string.
+ */
+export function toFixed(value: number, precision = 2): string {
+  return value % 1 === 0 ? value.toString() : value.toFixed(precision)
 }

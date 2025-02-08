@@ -1,18 +1,15 @@
 <template>
   <div>
-    <svg
-      class="g-code"
-      :viewBox="`0 0 ${size} ${size}`"
-      @mousedown="onMouseDown"
-      @mouseup="onMouseUp"
-      :style="{ cursor: editable ? 'crosshair' : 'default' }"
-    >
+    <svg class="g-code" :viewBox="`0 0 ${size} ${size}`" @mousedown="onMouseDown" :style="{ cursor: editable ? 'crosshair' : 'default' }">
       <rect class="bed" x="0" y="0" :width="size" :height="size" />
 
       <g :transform="`scale(1, -1) translate(0, -${size})`">
+        <g v-if="showGrid" class="grid">
+          <line v-for="line of grid" :key="line.id" :class="line.class" :x1="line.x1" :y1="line.y1" :x2="line.x2" :y2="line.y2" />
+        </g>
+
         <path v-for="line of lines" :key="line.id" :class="line.class" :d="`M${line.x} ${line.y} l${line.dx} ${line.dy}`" />
 
-        <!-- Cross at lastX, lastY -->
         <line :x1="X - 4" :y1="Y" :x2="X + 4" :y2="Y" class="cross" />
         <line :x1="X" :y1="Y - 4" :x2="X" :y2="Y + 4" class="cross" />
       </g>
@@ -21,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useVModel } from '@vueuse/core'
 
 type Line = {
@@ -64,6 +61,18 @@ const props = defineProps({
   showMoves: {
     type: Boolean,
     default: true
+  },
+  showGrid: {
+    type: Boolean,
+    default: true
+  },
+  snapToGrid: {
+    type: Boolean,
+    default: true
+  },
+  gridSteps: {
+    type: Number,
+    default: 4
   }
 })
 
@@ -79,16 +88,7 @@ const emit = defineEmits<{
 
 const gCode = useVModel(props, 'modelValue', emit)
 
-const isDragging = ref(false)
-
 // Computed
-
-const penDown = computed<boolean>({
-  get: () => props.Z === 0,
-  set: (value) => {
-    onPenDown(value)
-  }
-})
 
 const lines = computed<Line[]>(() => {
   const rows = gCode.value.split('\n')
@@ -154,18 +154,20 @@ const lines = computed<Line[]>(() => {
   return lines
 })
 
+const grid = computed(() => {
+  const lines: { id: number; class: string; x1: number; y1: number; x2: number; y2: number }[] = []
+
+  if (props.showGrid) {
+    for (let i = 0; i <= props.size; i += 10 / props.gridSteps) {
+      lines.push({ id: i * 2, class: `grid-${i % 10}`, x1: 0, y1: i, x2: props.size, y2: i })
+      lines.push({ id: i * 2 + 1, class: `grid-${i % 10}`, x1: i, y1: 0, x2: i, y2: props.size })
+    }
+  }
+
+  return lines
+})
+
 // Methods
-
-const getCode = () => {
-  return gCode.value ? gCode.value : 'G90 ; absolute positioning\nG0 X0 Y0 ; move to start position\n'
-}
-
-const onPenDown = (down: boolean) => {
-  const code = down ? 'G1 Z0\n' : 'G0 Z10\n'
-  emit('send', code)
-  gCode.value = getCode() + code
-  emit('move', { x: props.X, y: props.Y, z: down ? 0 : 10 })
-}
 
 const onMouseDown = (event: MouseEvent) => {
   if (!props.editable) return
@@ -175,24 +177,7 @@ const onMouseDown = (event: MouseEvent) => {
   const x = props.size * ((event.clientX - rect.left) / rect.width)
   const y = props.size * (1 - (event.clientY - rect.top) / rect.height)
 
-  isDragging.value = true
-
-  let code = ''
-
-  if (penDown.value) {
-    code = `G1 X${x.toFixed(6)} Y${y.toFixed(6)}\n`
-  } else {
-    code = `G0 X${x.toFixed(6)} Y${y.toFixed(6)}\n`
-  }
-
-  emit('send', code)
-  gCode.value = getCode() + code
-
   emit('move', { x, y, z: props.Z })
-}
-
-const onMouseUp = () => {
-  isDragging.value = false
 }
 </script>
 
@@ -217,5 +202,15 @@ svg.g-code .cross {
 svg.g-code .move {
   stroke: green !important;
   vector-effect: non-scaling-stroke;
+}
+
+svg.g-code .grid line {
+  stroke: #eee !important;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+svg.g-code .grid line.grid-0 {
+  stroke: #ccc !important;
 }
 </style>

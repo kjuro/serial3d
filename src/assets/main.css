@@ -6,6 +6,16 @@ html, body, main {
   overflow: hidden;
 }
 
+/* Buttons */
+
+.btn {
+  --bs-btn-padding-x: 0.5rem;
+}
+
+.btn-sm {
+  --bs-btn-padding-x: 0.25rem;
+}
+
 /* Test classes */
 
 .br {
