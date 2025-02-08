@@ -1,7 +1,16 @@
 <template>
   <div>
-    <svg class="g-code" :viewBox="`0 0 ${size} ${size}`" @mousedown="onMouseDown" :style="{ cursor: editable ? 'crosshair' : 'default' }">
-      <rect class="bed" x="0" y="0" :width="size" :height="size" />
+    <svg
+      class="g-code"
+      :viewBox="`0 0 ${size} ${size}`"
+      @mousedown="onMouseDown"
+      :style="{ cursor: editable ? 'crosshair' : 'default' }"
+      stroke="black"
+      stroke-linecap="round"
+      stroke-width="0.4"
+      fill="none"
+    >
+      <!--rect class="bed" x="0" y="0" :width="size" :height="size" /-->
 
       <g :transform="`scale(1, -1) translate(0, -${size})`">
         <g v-if="showGrid" class="grid">
@@ -169,16 +178,65 @@ const grid = computed(() => {
 
 // Methods
 
-const onMouseDown = (event: MouseEvent) => {
+function onMouseDown(event: MouseEvent) {
   if (!props.editable) return
 
   const svgElement = event.currentTarget as SVGElement
   const rect = svgElement.getBoundingClientRect()
-  const x = props.size * ((event.clientX - rect.left) / rect.width)
-  const y = props.size * (1 - (event.clientY - rect.top) / rect.height)
+  const x = snap(props.size * ((event.clientX - rect.left) / rect.width))
+  const y = snap(props.size * (1 - (event.clientY - rect.top) / rect.height))
 
   emit('move', { x, y, z: props.Z })
 }
+
+function snap(value: number): number {
+  if (!props.snapToGrid) return value
+
+  return Math.round(value / (10 / props.gridSteps)) * (10 / props.gridSteps)
+}
+
+async function downloadSVG() {
+  const svg = document.querySelector('.g-code')
+  if (!svg) return
+  const serializer = new XMLSerializer()
+  const source = serializer.serializeToString(svg)
+
+  // Use the File System Access API if available:
+  if ('showSaveFilePicker' in window) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: 'drawing.svg',
+        types: [
+          {
+            description: 'SVG file',
+            accept: { 'image/svg+xml': ['.svg'] }
+          }
+        ]
+      })
+      const writable = await handle.createWritable()
+      await writable.write(source)
+      await writable.close()
+    } catch (err) {
+      console.error(err)
+    }
+  } else {
+    // Fallback: built-in download (no custom location prompt)
+    const blob = new Blob([source], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'drawing.svg'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+}
+
+// Expose
+
+defineExpose({
+  downloadSVG
+})
 </script>
 
 <style>

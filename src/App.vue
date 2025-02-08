@@ -18,6 +18,7 @@
         </span>
 
         <div class="row col-auto mx-0 ms-auto">
+          <b-button variant="primary" @click="saveImageFile()" size="sm" title="Save SVG file" class="col-auto me-1"><Save /></b-button>
           <b-button
             class="col-auto"
             variant="primary"
@@ -38,7 +39,19 @@
       </div>
 
       <div class="col-auto">
-        <GCodeViewer class="h-100" v-model="code" :X="X" :Y="Y" :Z="Z" :showMoves="showMoves" :showGrid="showGrid" @send="sendCode" @move="onMove" />
+        <GCodeViewer
+          ref="gCodeViewer"
+          class="h-100"
+          v-model="code"
+          :X="X"
+          :Y="Y"
+          :Z="Z"
+          :showMoves="showMoves"
+          :showGrid="showGrid"
+          :snapToGrid="snapToGrid"
+          @send="sendCode"
+          @move="onMove"
+        />
       </div>
 
       <div class="col-auto ps-3" style="width: 200px">
@@ -145,6 +158,9 @@
             <BFormCheckbox v-model="showGrid">Show grid</BFormCheckbox>
           </div>
           <div class="col-12">
+            <BFormCheckbox v-model="snapToGrid">Snap to grid</BFormCheckbox>
+          </div>
+          <div class="col-12">
             <BFormCheckbox v-model="addToCode">Add to G-Code</BFormCheckbox>
           </div>
         </b-row>
@@ -213,9 +229,12 @@ const Z = ref(10) // Z position
 const sendToPlotter = useStorage('sendToPlotter', false)
 const showMoves = useStorage('showMoves', false)
 const showGrid = useStorage('showGrid', false)
+const snapToGrid = useStorage('snapToGrid', true)
 const addToCode = useStorage('addToCode', false)
 
 const unit = useStorage('unit', 10) // Unit in mm
+
+const gCodeViewer = ref<InstanceType<typeof GCodeViewer>>()
 
 const code = ref<string>(`G90 ; absolute positioning
 G0 X0 Y0
@@ -474,6 +493,10 @@ function onClear() {
   X.value = 0
   Y.value = 0
   Z.value = 10
+}
+
+function saveImageFile() {
+  gCodeViewer.value?.downloadSVG()
 }
 </script>
 
