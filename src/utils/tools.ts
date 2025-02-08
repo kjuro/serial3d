@@ -90,3 +90,15 @@ export function convertGCode(rows: string[], convert: (x: number, y: number, abs
 export function toFixed(value: number, precision = 2): string {
   return value % 1 === 0 ? value.toString() : value.toFixed(precision)
 }
+
+export function getArgumentsMap(args: string[]): Record<string, number> {
+  // Get X, Y, Z values
+  const argsMap: Record<string, number> = {}
+  for (const arg of args) {
+    const letter = arg[0]
+    const value = parseFloat(arg.slice(1))
+    argsMap[letter] = value
+  }
+
+  return argsMap
+}

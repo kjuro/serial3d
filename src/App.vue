@@ -198,7 +198,7 @@ import {
   PenOff
 } from 'lucide-vue-next'
 import GCodeViewer from './components/GCodeViewer.vue'
-import { scaleGCode, moveGCode, toFixed } from '@/utils/tools'
+import { scaleGCode, moveGCode, toFixed, getArgumentsMap } from '@/utils/tools'
 
 // Contants
 
@@ -493,6 +493,35 @@ function move(x: number, y: number, z: number, absolute = false) {
 
   if (addToCode.value) {
     initLines()
+
+    // Get last 2 roww
+    const lastRow1 = rows.value[rows.value.length - 1]
+    const lastRow2 = rows.value[rows.value.length - 2]
+    // Get command and X,Y,Z values
+    const [lastCommand1, ...args1] = lastRow1.split(' ')
+    const [lastCommand2, ...args2] = lastRow2.split(' ')
+
+    if (command === lastCommand1 && command === lastCommand2) {
+      // Get X, Y, Z values
+      const argsMap1 = getArgumentsMap(args1)
+      const argsMap2 = getArgumentsMap(args2)
+
+      if (argsMap1.Z === Z.value && argsMap2.Z === Z.value) {
+        // Pen is up => commands may be combined
+        if (Z.value > 0) {
+          rows.value.pop() // Remove last row
+        } else {
+          // is the same direction
+          const direction1 = (X.value - argsMap1.X) / (Y.value - argsMap1.Y)
+          const direction2 = (argsMap1.X - argsMap2.X) / (argsMap1.Y - argsMap2.Y)
+
+          if (direction1 === direction2) {
+            rows.value.pop() // Remove last row
+          }
+        }
+      }
+    }
+
     rows.value.push(`${command} X${toFixed(X.value)} Y${toFixed(Y.value)} Z${toFixed(Z.value)}`)
   }
 }
