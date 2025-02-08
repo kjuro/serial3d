@@ -8,7 +8,7 @@
           <b-button @click="saveFile(true)" size="sm" title="Save as G-Code file" class="col-auto me-1"><SaveAll /></b-button>
           <b-button @click="onClear" size="sm" title="Clear G-Code" class="col-auto me-1"><CircleX /></b-button>
 
-          <b-button v-if="printerSerial.isOpen" @click="send(code)" variant="primary" class="col-auto mx-1"><SendHorizontal /> Send</b-button>
+          <b-button v-if="printerSerial.isOpen" @click="sendLines(rows)" variant="primary" class="col-auto mx-1"><SendHorizontal /> Send</b-button>
         </div>
 
         <span class="navbar-brand col text-center">Serial Plotter / {{ position }}</span>
@@ -35,14 +35,14 @@
 
     <article class="d-flex p-3 flex-grow-1">
       <div class="col pe-3">
-        <BFormTextarea v-model="code" class="h-100" placeholder="Enter G-Code..." rows="10" />
+        <BFormTextarea :modelValue="rows.join('\n')" class="h-100" plaintext />
       </div>
 
       <div class="col-auto">
         <GCodeViewer
           ref="gCodeViewer"
           class="h-100"
-          v-model="code"
+          :rows="rows"
           :X="X"
           :Y="Y"
           :Z="Z"
@@ -236,19 +236,20 @@ const unit = useStorage('unit', 10) // Unit in mm
 
 const gCodeViewer = ref<InstanceType<typeof GCodeViewer>>()
 
-const code = ref<string>(`G90 ; absolute positioning
-G0 X0 Y0
-G0 Z0
-G1 X0 Y20
-G1 X20 Y20
-G1 X20 Y0
-G1 X0 Y0
-G1 X20 Y20
-G1 X10 Y30
-G1 X0 Y20
-G1 X20 Y0
-G0 Z10
-`)
+const rows = ref<string[]>([
+  'G90 ; absolute positioning',
+  'G0 X0 Y0',
+  'G0 Z0',
+  'G1 X0 Y20',
+  'G1 X20 Y20',
+  'G1 X20 Y0',
+  'G1 X0 Y0',
+  'G1 X20 Y20',
+  'G1 X10 Y30',
+  'G1 X0 Y20',
+  'G1 X20 Y0',
+  'G0 Z10'
+])
 
 // Computed
 
@@ -319,7 +320,16 @@ function sendCode(text: string) {
     send(text)
   }
 }
-// Function to send the value contained in the input
+
+async function sendLines(lines: string[]) {
+  if (!lines || lines.length === 0) {
+    return
+  }
+
+  await lines.forEach((line) => queue.push(line))
+  processQueue()
+}
+
 async function send(text: string) {
   if (!printerSerial.isOpen) {
     return
@@ -388,7 +398,7 @@ function openFile() {
       fileHandle.value.getFile().then((file: any) => {
         // Read the file
         file.text().then((text: string) => {
-          code.value = text
+          rows.value = text.split('\n')
         })
       })
     })
@@ -396,7 +406,7 @@ function openFile() {
 
 async function saveFile(openDialog = false) {
   // Save file with file API
-  const text = code.value
+  const text = rows.value.join('\n')
   if (openDialog || !fileHandle.value) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     fileHandle.value = await (window as any).showSaveFilePicker({
@@ -420,17 +430,20 @@ async function saveFile(openDialog = false) {
 
 function convertGCode(convert: boolean) {
   if (convert) {
-    const converted = scaleGCode(code.value, +scale.value / 100)
-    code.value = moveGCode(converted, +offsetX.value, +offsetY.value)
+    const converted = scaleGCode(rows.value, +scale.value / 100)
+    rows.value = moveGCode(converted, +offsetX.value, +offsetY.value)
   } else {
     // Revert
-    const converted = moveGCode(code.value, -offsetX.value, -offsetY.value)
-    code.value = scaleGCode(converted, 100 / +scale.value)
+    const converted = moveGCode(rows.value, -offsetX.value, -offsetY.value)
+    rows.value = scaleGCode(converted, 100 / +scale.value)
   }
 }
 
-const getCode = () => {
-  return code.value ? code.value : 'G90 ; absolute positioning\nG0 X0 Y0 ; move to start position\n'
+const initLines = () => {
+  if (rows.value.length === 0) {
+    rows.value.push('G90 ; absolute positioning')
+    rows.value.push('G0 X0 Y0 ; move to start position')
+  }
 }
 
 function move(x: number, y: number, z: number, absolute = false) {
@@ -479,7 +492,8 @@ function move(x: number, y: number, z: number, absolute = false) {
   sendCode(`${command}G90\nM114\n`)
 
   if (addToCode.value) {
-    code.value = getCode() + `${command} X${toFixed(X.value)} Y${toFixed(Y.value)} Z${toFixed(Z.value)}\n`
+    initLines()
+    rows.value.push(`${command} X${toFixed(X.value)} Y${toFixed(Y.value)} Z${toFixed(Z.value)}`)
   }
 }
 
@@ -488,7 +502,7 @@ function onMove(pos: { x: number; y: number; z: number }) {
 }
 
 function onClear() {
-  code.value = ''
+  rows.value = []
   fileHandle.value = ''
   X.value = 0
   Y.value = 0

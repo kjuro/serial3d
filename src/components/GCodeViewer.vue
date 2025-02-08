@@ -28,7 +28,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useVModel } from '@vueuse/core'
 
 type Line = {
   id: number
@@ -42,9 +41,9 @@ type Line = {
 // Properties
 
 const props = defineProps({
-  modelValue: {
-    type: String,
-    default: ''
+  rows: {
+    type: Array as () => string[],
+    default: () => []
   },
   size: {
     type: Number,
@@ -93,14 +92,9 @@ const emit = defineEmits<{
   move: [pos: { x: number; y: number; z: number }]
 }>()
 
-// Data
-
-const gCode = useVModel(props, 'modelValue', emit)
-
 // Computed
 
 const lines = computed<Line[]>(() => {
-  const rows = gCode.value.split('\n')
   const lines: Line[] = []
 
   let lastX = 0
@@ -108,7 +102,7 @@ const lines = computed<Line[]>(() => {
   let id = 1
   let absolute = true
 
-  for (let row of rows) {
+  for (let row of props.rows) {
     // Remove comments
     const commentIndex = row.indexOf(';')
     if (commentIndex !== -1) {
