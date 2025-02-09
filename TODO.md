@@ -3,14 +3,14 @@
 - [x] Open and save G-Code
 - [x] Select length for movement 10mm, 5mm, 1mm, 0.1mm
 - [x] Show current coordinates
-- [ ] Remember last settings in local storage
+- [x] Remember last settings in local storage
 - [ ] Zoom and pan for SVG image
-- [ ] Show grid for SVG
+- [x] Show grid for SVG
 - [ ] Rotate
 - [ ] Pen width
 - [ ] Pen color
 - [ ] Undo / Redo - last line remove / add
-- [ ] Snap to grid
+- [x] Snap to grid
 - [ ] Use script or loops in G-Code
 - [ ] Show mouse position
-- [ ] Combine moves to one if possible
+- [x] Combine moves to one if possible

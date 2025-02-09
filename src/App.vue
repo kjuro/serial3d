@@ -8,6 +8,9 @@
           <b-button @click="saveFile(true)" size="sm" title="Save as G-Code file" class="col-auto me-1"><SaveAll /></b-button>
           <b-button @click="onClear" size="sm" title="Clear G-Code" class="col-auto me-1"><CircleX /></b-button>
 
+          <b-button @click="demo1" size="sm" title="Demo 1" class="col-auto ms-4 me-1"><Triangle /></b-button>
+          <b-button @click="demo2" size="sm" title="Demo 2" class="col-auto me-1"><Hexagon /></b-button>
+
           <b-button v-if="printerSerial.isOpen" @click="sendLines(rows)" variant="primary" class="col-auto mx-1"><SendHorizontal /> Send</b-button>
         </div>
 
@@ -36,6 +39,7 @@
     <article class="d-flex p-3 flex-grow-1">
       <div class="col pe-3">
         <BFormTextarea :modelValue="rows.join('\n')" class="h-100" plaintext />
+        <!--BFormTextarea :modelValue="isWaitingForOk + '\n' + queue.join('\n')" class="h-100" plaintext /-->
       </div>
 
       <div class="col-auto">
@@ -95,6 +99,9 @@
         <b-row class="mb-3 justify-content-center">
           <div class="col-auto px-1">
             <b-button @click="move(X, Y, 0, true)" variant="primary" class="" title="Pen Up"><Pen /></b-button>
+          </div>
+          <div class="col-auto px-1">
+            <b-button @click="send('G92 X0 Y0 Z10')" variant="primary" class="" title="Set [0, 0, 10]"><Circle /></b-button>
           </div>
           <div class="col-auto px-1">
             <b-button @click="move(X, Y, 10, true)" variant="primary" class="" title="Pen Down"><PenOff /></b-button>
@@ -170,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import VueSerial from 'vue-serial'
 import { useStorage } from '@vueuse/core'
 
@@ -195,7 +202,9 @@ import {
   ArrowUpLeft,
   ArrowUpRight,
   Pen,
-  PenOff
+  PenOff,
+  Triangle,
+  Hexagon
 } from 'lucide-vue-next'
 import GCodeViewer from './components/GCodeViewer.vue'
 import { scaleGCode, moveGCode, toFixed, getArgumentsMap } from '@/utils/tools'
@@ -250,6 +259,12 @@ const rows = ref<string[]>([
   'G1 X20 Y0',
   'G0 Z10'
 ])
+
+// Lifecycle
+
+onMounted(() => {
+  // demo2()
+})
 
 // Computed
 
@@ -347,11 +362,17 @@ async function send(text: string) {
 
 // Function to process the queue
 async function processQueue() {
+  console.log('Queue:', queue.length, isWaitingForOk.value)
   if (isWaitingForOk.value || queue.length === 0) {
     return
   }
 
-  const value = queue.shift()
+  let value = queue.shift()
+
+  while (!value && queue.length > 0) {
+    value = queue.shift()
+  }
+
   if (value) {
     const encoder = new TextEncoder()
     const data = encoder.encode(value + '\n')
@@ -489,7 +510,7 @@ function move(x: number, y: number, z: number, absolute = false) {
   } else {
     sendCode(`${command} X${toFixed(x * unit.value)} Y${toFixed(y * unit.value)} Z${toFixed(z * unit.value)}\n`)
   }
-  sendCode(`${command}G90\nM114\n`)
+  sendCode('G90\nM114\n')
 
   if (addToCode.value) {
     initLines()
@@ -540,6 +561,93 @@ function onClear() {
 
 function saveImageFile() {
   gCodeViewer.value?.downloadSVG()
+}
+
+function demo1() {
+  rows.value = ['G90 ; absolute positioning', 'G0 X180 Y30 Z10', 'G0 Z0', 'G91 ; relative positioning']
+  const A = 60
+  const D = 5
+
+  /*for (let i = 0; i < 6; i++) {
+    moveAngle(A * i, D)
+  }*/
+
+  const steps = [
+    '32123454323432101210501232123432101232123454345054323454345010545',
+    '054323432123454323432101232123454345054323432123454323432',
+    '1012105012321012105450105012321234321012105012321012105450543450',
+    '105012105450105012321234321012321234543234321012105012321'
+  ]
+
+  for (let i = 0; i < steps.length; i++) {
+    const line = steps[i]
+    for (let j = 0; j < line.length; j++) {
+      moveAngle(+line.charAt(j) * A, D)
+    }
+  }
+
+  rows.value.push('G0 Z10')
+}
+
+function demo2() {
+  rows.value = ['G90 ; absolute positioning', 'G0 X10 Y10 Z10', 'G0 Z0', 'G91 ; relative positioning']
+  const A = 60
+  const D = 5
+
+  /*for (let i = 0; i < 6; i++) {
+    moveAngle(A * i, D)
+  }*/
+
+  const steps = [
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '234323432343234323432343234323432343234323432343210',
+    '50105010501050105010501050105010501050105010501',
+    '23432343234323432343234323432343234323432343234'
+  ]
+
+  for (let i = 0; i < steps.length; i++) {
+    const line = steps[i]
+    for (let j = 0; j < line.length; j++) {
+      moveAngle(+line.charAt(j) * A, D)
+    }
+  }
+
+  rows.value.push('G0 Z10')
+}
+
+function moveAngle(angle: number, distance: number) {
+  const x = Math.cos((angle * Math.PI) / 180) * distance
+  const y = Math.sin((angle * Math.PI) / 180) * distance
+
+  rows.value.push(`G1 X${toFixed(x)} Y${toFixed(y)}`)
 }
 </script>
 
