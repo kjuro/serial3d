@@ -98,13 +98,13 @@
 
         <b-row class="mb-3 justify-content-center">
           <div class="col-auto px-1">
-            <b-button @click="move(X, Y, 0, true)" variant="primary" class="" title="Pen Up"><Pen /></b-button>
+            <b-button @click="move(X, Y, 0, true)" variant="primary" class="" title="Pen Down"><Pen /></b-button>
           </div>
           <div class="col-auto px-1">
             <b-button @click="send('G92 X0 Y0 Z10')" variant="primary" class="" title="Set [0, 0, 10]"><Circle /></b-button>
           </div>
           <div class="col-auto px-1">
-            <b-button @click="move(X, Y, 10, true)" variant="primary" class="" title="Pen Down"><PenOff /></b-button>
+            <b-button @click="move(X, Y, 10, true)" variant="primary" class="" title="Pen Up"><PenOff /></b-button>
           </div>
         </b-row>
 
