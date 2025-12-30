@@ -1,15 +1,7 @@
 import { scaleGCode, moveGCode } from './tools.ts'
 import { describe, it, expect } from 'vitest'
 
-const gCode = `
-G90 ; absolute positioning
-G0 X100 Y100 Z10
-G0 Z0
-G1 X200 Y200
-G91 ; relative positioning
-G1 X10 Y10
-G1 X-20 Y-20
-`
+const gCode = ['G90 ; absolute positioning', 'G0 X100 Y100 Z10', 'G0 Z0', 'G1 X200 Y200', 'G91 ; relative positioning', 'G1 X10 Y10', 'G1 X-20 Y-20']
 
 const gCodeScalled = `
 G90 ; absolute positioning
@@ -31,20 +23,20 @@ G1 X20 Y20
 G1 X-40 Y-40
 `
 
-const home = `
-G90 ; absolute positioning
-G0 X0 Y0
-G0 Z0
-G1 X0 Y20
-G1 X20 Y20
-G1 X20 Y0
-G1 X0 Y0
-G1 X20 Y20
-G1 X10 Y30
-G1 X0 Y20
-G1 X20 Y0
-G0 Z10
-`
+const home = [
+  'G90 ; absolute positioning',
+  'G0 X0 Y0',
+  'G0 Z0',
+  'G1 X0 Y20',
+  'G1 X20 Y20',
+  'G1 X20 Y0',
+  'G1 X0 Y0',
+  'G1 X20 Y20',
+  'G1 X10 Y30',
+  'G1 X0 Y20',
+  'G1 X20 Y0',
+  'G0 Z10'
+]
 
 describe('scaleGCode', () => {
   it('should not change G-code if no transform is defined', () => {

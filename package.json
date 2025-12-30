@@ -11,6 +11,7 @@
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix",
     "format": "prettier --write src/",
+    "copy": "call deploy.bat",
     "test": "vitest"
   },
   "dependencies": {

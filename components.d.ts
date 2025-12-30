@@ -10,9 +10,7 @@ declare module 'vue' {
     BButton: typeof import('bootstrap-vue-next/components/BButton')['BButton']
     BFormCheckbox: typeof import('bootstrap-vue-next/components/BFormCheckbox')['BFormCheckbox']
     BFormInput: typeof import('bootstrap-vue-next/components/BFormInput')['BFormInput']
-    BFormSelect: typeof import('bootstrap-vue-next/components/BFormSelect')['BFormSelect']
     BFormTextarea: typeof import('bootstrap-vue-next/components/BFormTextarea')['BFormTextarea']
-    BInputGroup: typeof import('bootstrap-vue-next/components/BInputGroup')['BInputGroup']
     BRow: typeof import('bootstrap-vue-next/components/BContainer')['BRow']
     GCodeViewer: typeof import('./src/components/GCodeViewer.vue')['default']
   }
