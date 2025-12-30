@@ -122,13 +122,13 @@
 
         <b-row class="mb-2 justify-content-center">
           <div class="col-auto px-1">
-            <b-button @click="move(-1, 1, 0)" variant="primary" class="" title="Up-Left"><ArrowUpLeft /></b-button>
+            <b-button @click="move(-1, 1, 0)" variant="primary" class="" title="Back-Left"><ArrowUpLeft /></b-button>
           </div>
           <div class="col-auto px-1">
-            <b-button @click="move(0, 1, 0)" variant="primary" class="" title="Up"><ArrowUp /></b-button>
+            <b-button @click="move(0, 1, 0)" variant="primary" class="" title="Back"><ArrowUp /></b-button>
           </div>
           <div class="col-auto px-1">
-            <b-button @click="move(1, 1, 0)" variant="primary" class="" title="Up-Right"><ArrowUpRight /></b-button>
+            <b-button @click="move(1, 1, 0)" variant="primary" class="" title="Back-Right"><ArrowUpRight /></b-button>
           </div>
         </b-row>
         <b-row class="mb-2 justify-content-center">
@@ -144,13 +144,13 @@
         </b-row>
         <b-row class="justify-content-center">
           <div class="col-auto px-1">
-            <b-button @click="move(-1, -1, 0)" variant="primary" class="" title="Down-Left"><ArrowDownLeft /></b-button>
+            <b-button @click="move(-1, -1, 0)" variant="primary" class="" title="Front-Left"><ArrowDownLeft /></b-button>
           </div>
           <div class="col-auto px-1">
-            <b-button @click="move(0, -1, 0)" variant="primary" class="" title="Down"><ArrowDown /></b-button>
+            <b-button @click="move(0, -1, 0)" variant="primary" class="" title="Front"><ArrowDown /></b-button>
           </div>
           <div class="col-auto px-1">
-            <b-button @click="move(1, -1, 0)" variant="primary" class="" title="Down-Right"><ArrowDownRight /></b-button>
+            <b-button @click="move(1, -1, 0)" variant="primary" class="" title="Front-Right"><ArrowDownRight /></b-button>
           </div>
         </b-row>
 
